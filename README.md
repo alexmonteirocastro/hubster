@@ -23,13 +23,58 @@ Use it to build job-discovery tools, RAG chatbots, or analytics over Nordic/Euro
 
 ## Requirements
 
-- Python **3.12+**
+- Python **3.12+** (for local development)
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
-- A running Qdrant instance (local or cloud)
+- [Docker](https://www.docker.com/) and Docker Compose (recommended for running the full stack)
 
-## Quick start
+## Quick start (Docker)
 
-### 1. Clone and install
+### 1. Configure environment
+
+```bash
+cd hubster
+cp .env.example .env
+```
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `QDRANT_URL` | Qdrant HTTP endpoint | `http://localhost:6333` (host) / set automatically in Compose |
+| `QDRANT_API_KEY` | Qdrant Cloud API key (optional) | *(leave empty for local Qdrant)* |
+| `QDRANT_COLLECTION_NAME` | Qdrant collection name | `JOBS_ON_THE_HUB` |
+| `EMBEDDING_MODEL` | FastEmbed model ID | `BAAI/bge-small-en-v1.5` |
+
+> In Docker Compose, `QDRANT_URL` is overridden to `http://qdrant:6333` so the app container reaches Qdrant by service name.
+
+### 2. Start the stack
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+- **qdrant** — vector database on `localhost:6333` (persisted volume)
+- **app** — Streamlit dashboard on [localhost:8501](http://localhost:8501)
+
+### 3. Run ingestion (optional)
+
+Ingestion is gated behind a Compose profile so it never runs accidentally on `docker compose up`:
+
+```bash
+docker compose --profile ingestion run --rm ingestion
+```
+
+This scrapes all jobs from The Hub and seeds Qdrant. It also runs a sample semantic search at the end.
+
+> **Warning:** `main.py` currently calls `main(reset_db=True)`, which **deletes the collection before each run**. Change to `main(reset_db=False)` for incremental updates.
+
+### Local dev with bind mounts
+
+`docker-compose.override.yml` is loaded automatically and bind-mounts your source code into the containers. Edit a `.py` file and restart the service — no image rebuild needed. The image's `.venv` is preserved via an anonymous volume.
+
+## Quick start (local, without Docker)
+
+### 1. Install dependencies
 
 ```bash
 cd hubster
@@ -37,9 +82,7 @@ uv sync
 # or: pip install -e .
 ```
 
-### 2. Start Qdrant locally
-
-Using Docker:
+### 2. Start Qdrant
 
 ```bash
 docker run -p 6333:6333 -p 6334:6334 \
@@ -47,22 +90,13 @@ docker run -p 6333:6333 -p 6334:6334 \
   qdrant/qdrant
 ```
 
-Qdrant will be available at `http://localhost:6333`.
-
 ### 3. Configure environment
-
-Copy the example env file and set your values:
 
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `QDRANT_COLLECTION_NAME` | Qdrant collection name | `JOBS_ON_THE_HUB` |
-| `EMBEDDING_MODEL` | FastEmbed model ID | `BAAI/bge-small-en-v1.5` |
-
-> **Note:** The Qdrant URL is currently hardcoded in `db/database.py` (`http://localhost:6333`). For Qdrant Cloud, uncomment and configure the cloud client there.
+Ensure `QDRANT_URL=http://localhost:6333` is set in `.env`.
 
 ### 4. Run the scraper
 
@@ -70,17 +104,7 @@ cp .env.example .env
 uv run python main.py
 ```
 
-This will:
-
-1. Drop the existing collection (see note below)
-2. Create the collection if missing
-3. Scrape all jobs across supported countries
-4. Ingest them into Qdrant
-5. Run a sample semantic search
-
-> **Warning:** `main.py` currently calls `main(reset_db=True)`, which **deletes the collection before each run**. Change to `main(reset_db=False)` for incremental updates.
-
-### 5. Launch the Streamlit app (optional)
+### 5. Launch the Streamlit app
 
 ```bash
 uv run streamlit run streamlit_app.py
@@ -93,14 +117,17 @@ uv run streamlit run streamlit_app.py
 
 ```
 hubster/
-├── main.py                 # Scrape, seed Qdrant, test search
-├── streamlit_app.py        # Simple dashboard / demo UI
+├── main.py                      # Scrape, seed Qdrant, test search
+├── streamlit_app.py             # Simple dashboard / demo UI
+├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
+├── docker-compose.yml           # Qdrant + Streamlit app + ingestion profile
+├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
 ├── the_hub_client/
-│   ├── models.py           # Pydantic models (JobOpportunity, CountryCode, …)
-│   └── utils.py            # The Hub API client
+│   ├── models.py                # Pydantic models (JobOpportunity, CountryCode, …)
+│   └── utils.py                 # The Hub API client
 ├── db/
-│   ├── database.py         # Qdrant client, collection CRUD, embedding, search
-│   └── db_utils.py         # seed_qdrant_db(), CSV export
+│   ├── database.py              # Qdrant client, collection CRUD, embedding, search
+│   └── db_utils.py              # seed_qdrant_db(), CSV export
 ├── pyproject.toml
 └── .env.example
 ```
@@ -163,6 +190,6 @@ Base URL: `https://thehub.io`
 ## Roadmap / known limitations
 
 - [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
-- [ ] Move Qdrant URL / API key to environment variables
+- [x] Dockerize the full stack (Qdrant + app + ingestion)
 - [ ] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Rate limiting and retry logic for API calls

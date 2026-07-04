@@ -1,0 +1,13 @@
+.git
+.venv
+tmp/
+qdrant_data/
+.env
+*.csv
+__pycache__/
+.mypy_cache/
+*.py[oc]
+*.egg-info
+build/
+dist/
+wheels/

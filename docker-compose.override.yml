@@ -1,0 +1,13 @@
+# Local dev overrides — auto-loaded by `docker compose up`.
+# Bind-mounts source so .py edits apply without rebuilding the image.
+# The anonymous /app/.venv volume keeps the image's virtualenv intact.
+services:
+  app:
+    volumes:
+      - .:/app
+      - /app/.venv
+
+  ingestion:
+    volumes:
+      - .:/app
+      - /app/.venv
