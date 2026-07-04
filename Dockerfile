@@ -18,11 +18,13 @@ FROM python:3.12-slim-bookworm AS runtime
 
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app app
+RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app
 
 COPY --from=builder --chown=app:app /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    HOME="/home/app" \
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 USER app
 
