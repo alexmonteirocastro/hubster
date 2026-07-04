@@ -1,0 +1,16 @@
+[project]
+name = "hubster"
+version = "0.1.0"
+description = "Scrape The Hub job portal via API and store embeddings in Qdrant for semantic search"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.4.1",
+    "markdownify>=1.2.2",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
+    "qdrant-client[fastembed]>=1.16.2",
+    "requests>=2.32.5",
+    "streamlit>=1.53.1",
+    "watchdog>=6.0.0",
+]

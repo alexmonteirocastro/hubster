@@ -1,0 +1,115 @@
+import os
+import uuid
+from typing import List
+
+from dotenv import load_dotenv
+from qdrant_client import QdrantClient, models
+
+from the_hub_client import JobOpportunity
+
+load_dotenv()
+
+# For local development (saving to a folder)
+client = QdrantClient(url="http://localhost:6333")
+
+# OR for the Cloud Free Tier:
+# client = QdrantClient(url="your-url.aws.cloud.qdrant.io", api_key="your-key")
+
+embedding_model = os.getenv("EMBEDDING_MODEL", "")
+client.set_model(embedding_model)  # Tell Qdrant which model to use globally
+
+jobs_collection_name = os.getenv("QDRANT_COLLECTION_NAME", "")
+
+
+def create_collection(db_client: QdrantClient, collection_name: str):
+    """check if collection exists, if not, create one"""
+    if not db_client.collection_exists(collection_name):
+        db_client.create_collection(
+            collection_name=collection_name,
+            # Dense vectors config (for semantic search)
+            vectors_config=client.get_fastembed_vector_params(),
+        )
+
+
+def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
+    coll_info = db_client.get_collection(collection_name)
+    available_vector_names = list(coll_info.config.params.vectors.keys())  # type: ignore
+
+    return available_vector_names[0]
+
+
+def load_jobs_into_qdrant(
+    db_client: QdrantClient, collection_name: str, jobs: List[JobOpportunity]
+):
+    # Prepare documents for embedding
+    jobs_documents = [
+        f"Job Title: {job.job_title}\nCompany: {job.company}\nCompany Description: {job.company_description}\nJob Description: {job.job_description}"
+        for job in jobs
+    ]
+
+    jobs_metadata = [
+        {
+            "job_url_identifier": job.job_id,
+            "job_role": job.job_role,
+            "Country": job.country,
+            "location": job.locality,
+            "Remote": job.remote,
+            "Salary Type": job.salary_type,
+            "Salary": job.salary,
+            "Equity": job.equity,
+        }
+        for job in jobs
+    ]
+
+    jobs_ids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, job.job_id)) for job in jobs]
+
+    vector_name = get_vector_name(client, collection_name)
+
+    points = [
+        models.PointStruct(
+            id=job_id,
+            vector={vector_name: models.Document(text=doc_text, model=embedding_model)},
+            payload={**metadata, "document_text": doc_text},
+        )
+        for job_id, doc_text, metadata in zip(  # type:ignore
+            jobs_ids, jobs_documents, jobs_metadata  # type:ignore
+        )
+    ]
+
+    # QDrant handles the embedding and ID generation
+    db_client.upsert(collection_name=collection_name, points=points)
+
+    print(f"{len(jobs_documents)} jobs ingested into the vector database")
+
+
+def query_jobs_in_qdrant(
+    db_client: QdrantClient, collection_name: str, query_text: str
+):
+    vector_name = get_vector_name(db_client, collection_name)
+
+    search_results = db_client.query_points(
+        collection_name=collection_name,
+        query=models.Document(text=query_text, model=embedding_model),
+        using=vector_name,
+        limit=5,
+    )
+
+    return search_results
+
+
+def drop_db(db_client: QdrantClient, collection_name: str):
+    if db_client.collection_exists(collection_name):
+        db_client.delete_collection(collection_name=collection_name)
+        print(f"🔥 Collection '{collection_name}' deleted completely.")
+    else:
+        print("Nothing to delete.")
+
+
+def clear_db(db_client: QdrantClient, collection_name: str):
+    if db_client.collection_exists(collection_name):
+        db_client.delete(
+            collection_name=collection_name,
+            # Using a FilterSelector with an empty Filter matches everything
+            points_selector=models.FilterSelector(filter=models.Filter()),
+        )
+        print(f"🧹 All jobs cleared from '{collection_name}'.")
