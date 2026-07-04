@@ -56,17 +56,36 @@ This starts:
 - **qdrant** — vector database on `localhost:6333` (persisted volume)
 - **app** — Streamlit dashboard on [localhost:8501](http://localhost:8501)
 
-### 3. Run ingestion (optional)
+### 3. Run ingestion
 
 Ingestion is gated behind a Compose profile so it never runs accidentally on `docker compose up`:
 
 ```bash
+# Incremental sync (default) — add new jobs, remove delisted ones
 docker compose --profile ingestion run --rm ingestion
+
+# Full bootstrap seed (first run only)
+docker compose --profile ingestion run --rm ingestion --seed
 ```
 
-This scrapes all jobs from The Hub and seeds Qdrant. It also runs a sample semantic search at the end.
+**Sync vs seed**
 
-> **Warning:** `main.py` currently calls `main(reset_db=True)`, which **deletes the collection before each run**. Change to `main(reset_db=False)` for incremental updates.
+| Mode | Command | When to use |
+|------|---------|-------------|
+| **Sync** (default) | `python main.py` | Scheduled runs — diffs live listings vs Qdrant, fetches detail only for new jobs, deletes delisted ones |
+| **Seed** | `python main.py --seed` | First-time bootstrap of an empty collection |
+
+Sync never drops the collection, so search stays available throughout. A second sync with no upstream changes makes zero detail fetches and zero Qdrant writes.
+
+> **Limitation:** Sync does not detect in-place edits to an existing listing (same `job_id`, changed description). Only additions and removals are reconciled. Hash-based change detection may be added later.
+
+**Scheduling (cron example)**
+
+```cron
+0 */6 * * * cd /path/to/hubster && docker compose --profile ingestion run --rm ingestion
+```
+
+Runs incremental sync every 6 hours inside the ingestion container.
 
 ### Local dev with bind mounts
 
@@ -98,10 +117,14 @@ cp .env.example .env
 
 Ensure `QDRANT_URL=http://localhost:6333` is set in `.env`.
 
-### 4. Run the scraper
+### 4. Run ingestion
 
 ```bash
+# Incremental sync (default)
 uv run python main.py
+
+# Full bootstrap seed (first run only)
+uv run python main.py --seed
 ```
 
 ### 5. Launch the Streamlit app
@@ -117,7 +140,7 @@ uv run streamlit run streamlit_app.py
 
 ```
 hubster/
-├── main.py                      # Scrape, seed Qdrant, test search
+├── main.py                      # Sync/seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
 ├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
@@ -127,7 +150,7 @@ hubster/
 │   └── utils.py                 # The Hub API client
 ├── db/
 │   ├── database.py              # Qdrant client, collection CRUD, embedding, search
-│   └── db_utils.py              # seed_qdrant_db(), CSV export
+│   └── db_utils.py              # seed_qdrant_db(), sync_qdrant_db(), CSV export
 ├── pyproject.toml
 ├── tests/
 │   ├── fixtures/              # Mock Hub API JSON payloads
@@ -226,5 +249,5 @@ Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get`
 
 - [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
-- [ ] Incremental sync (skip already-ingested jobs instead of full reset)
+- [x] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Rate limiting and retry logic for API calls

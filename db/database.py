@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import List
+from typing import List, Set
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
@@ -8,6 +8,10 @@ from qdrant_client import QdrantClient, models
 from the_hub_client import JobOpportunity
 
 load_dotenv()
+
+
+def job_id_to_point_id(job_id: str) -> str:
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, job_id))
 
 
 def create_qdrant_client() -> QdrantClient:
@@ -69,9 +73,9 @@ def load_jobs_into_qdrant(
         for job in jobs
     ]
 
-    jobs_ids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, job.job_id)) for job in jobs]
+    jobs_ids = [job_id_to_point_id(job.job_id) for job in jobs]
 
-    vector_name = get_vector_name(client, collection_name)
+    vector_name = get_vector_name(db_client, collection_name)
 
     points = [
         models.PointStruct(
@@ -88,6 +92,47 @@ def load_jobs_into_qdrant(
     db_client.upsert(collection_name=collection_name, points=points)
 
     print(f"{len(jobs_documents)} jobs ingested into the vector database")
+
+
+def get_indexed_job_ids(db_client: QdrantClient, collection_name: str) -> Set[str]:
+    """Return Hub job IDs currently stored in Qdrant (via scroll, not search)."""
+    indexed_job_ids: Set[str] = set()
+    offset = None
+
+    while True:
+        points, next_offset = db_client.scroll(
+            collection_name=collection_name,
+            limit=100,
+            offset=offset,
+            with_payload=["job_url_identifier"],
+            with_vectors=False,
+        )
+
+        for point in points:
+            payload = point.payload or {}
+            job_id = payload.get("job_url_identifier")
+            if job_id:
+                indexed_job_ids.add(job_id)
+
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    return indexed_job_ids
+
+
+def delete_jobs_from_qdrant(
+    db_client: QdrantClient, collection_name: str, job_ids: List[str]
+):
+    if not job_ids:
+        return
+
+    point_ids = [job_id_to_point_id(job_id) for job_id in job_ids]
+    db_client.delete(
+        collection_name=collection_name,
+        points_selector=models.PointIdsList(points=point_ids),
+    )
+    print(f"{len(point_ids)} stale jobs removed from the vector database")
 
 
 def query_jobs_in_qdrant(
