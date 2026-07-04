@@ -120,7 +120,7 @@ hubster/
 ├── main.py                      # Scrape, seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
-├── docker-compose.yml           # Qdrant + Streamlit app + ingestion profile
+├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
 ├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
 ├── the_hub_client/
 │   ├── models.py                # Pydantic models (JobOpportunity, CountryCode, …)
@@ -129,6 +129,9 @@ hubster/
 │   ├── database.py              # Qdrant client, collection CRUD, embedding, search
 │   └── db_utils.py              # seed_qdrant_db(), CSV export
 ├── pyproject.toml
+├── tests/
+│   ├── fixtures/              # Mock Hub API JSON payloads
+│   └── the_hub_client/        # Unit tests for API client parsing
 └── .env.example
 ```
 
@@ -186,6 +189,38 @@ load_jobs_data_into_csv("jobs_preview.csv")  # writes to tmp/
 | `GET /api/jobs/single/{job_id}` | Full job details |
 
 Base URL: `https://thehub.io`
+
+## Testing
+
+Hubster has two test layers:
+
+- **Unit tests** (this section) — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
+- **Retrieval golden-set tests** (planned) — evaluate semantic search quality against a fixed query set in Qdrant.
+
+### Run unit tests
+
+**Local (host):**
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+Verbose output:
+
+```bash
+uv run pytest -v
+```
+
+**Docker:**
+
+```bash
+docker compose --profile test run --rm test
+```
+
+This uses the `test` build target (includes pytest + responses). No Qdrant or network access required. With `docker-compose.override.yml` active, test file edits apply without rebuilding the image.
+
+Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get` boundary.
 
 ## Roadmap / known limitations
 

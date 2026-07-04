@@ -16,16 +16,6 @@ JOB_LISTINGS_ENDPOINT_ROUTE = "/api/v2/jobs"
 SINGLE_JOB_ENDPOINT_ROUTE = "/api/jobs/single/"
 
 
-def get_number_of_jobs_by_country(country: CountryCode) -> int:
-    response = requests.get(
-        f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?countryCode={country.value}"
-    )
-    jobs_listing_response = response.json()
-    number_of_jobs = jobs_listing_response.get("total", 0)
-
-    return number_of_jobs
-
-
 def get_number_of_jobs_and_pages_by_country(country: CountryCode) -> JobsAndPages:
     response = requests.get(
         f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?countryCode={country.value}"

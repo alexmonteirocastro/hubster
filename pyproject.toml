@@ -13,3 +13,12 @@ dependencies = [
     "streamlit>=1.53.1",
     "watchdog>=6.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "responses>=0.25.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

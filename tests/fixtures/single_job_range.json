@@ -1,0 +1,20 @@
+{
+  "title": "Backend Engineer",
+  "jobRole": "backenddeveloper",
+  "company": {
+    "name": "Acme Corp",
+    "whatWeDo": "<p>We build things.</p>"
+  },
+  "description": "<p>Build APIs.</p>",
+  "location": {
+    "country": "Denmark",
+    "locality": "Copenhagen"
+  },
+  "isRemote": true,
+  "salary": "range",
+  "salaryRange": {
+    "min": 500000,
+    "max": 700000
+  },
+  "equity": "0.1%"
+}
