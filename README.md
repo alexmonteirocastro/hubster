@@ -129,6 +129,9 @@ hubster/
 │   ├── database.py              # Qdrant client, collection CRUD, embedding, search
 │   └── db_utils.py              # seed_qdrant_db(), CSV export
 ├── pyproject.toml
+├── tests/
+│   ├── fixtures/              # Mock Hub API JSON payloads
+│   └── the_hub_client/        # Unit tests for API client parsing
 └── .env.example
 ```
 
@@ -186,6 +189,28 @@ load_jobs_data_into_csv("jobs_preview.csv")  # writes to tmp/
 | `GET /api/jobs/single/{job_id}` | Full job details |
 
 Base URL: `https://thehub.io`
+
+## Testing
+
+Hubster has two test layers:
+
+- **Unit tests** (this section) — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
+- **Retrieval golden-set tests** (planned) — evaluate semantic search quality against a fixed query set in Qdrant.
+
+### Run unit tests
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+Verbose output:
+
+```bash
+uv run pytest -v
+```
+
+Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get` boundary.
 
 ## Roadmap / known limitations
 

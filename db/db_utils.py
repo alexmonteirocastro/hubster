@@ -9,7 +9,7 @@ from db import load_jobs_into_qdrant
 from the_hub_client import (
     CountryCode,
     JobOpportunity,
-    get_job_ids_per_page_per_country,
+    get_all_job_ids_per_country,
     get_number_of_jobs_and_pages_by_country,
     scrape_job_offer_by_id,
 )
@@ -17,6 +17,12 @@ from the_hub_client import (
 load_dotenv()
 
 embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+
+
+def _chunk_job_ids(job_ids: List[str], chunk_size: int) -> List[List[str]]:
+    if chunk_size <= 0:
+        return [job_ids]
+    return [job_ids[i : i + chunk_size] for i in range(0, len(job_ids), chunk_size)]
 
 
 def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
@@ -32,14 +38,19 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
 
         for country in CountryCode:
             country_overall = get_number_of_jobs_and_pages_by_country(country)
+            all_job_ids = get_all_job_ids_per_country(
+                country=country,
+                pages_in_country=country_overall.number_of_pages,
+                total_jobs_in_country=country_overall.total_jobs,
+            )
+            page_chunks = _chunk_job_ids(
+                all_job_ids, country_overall.jobs_per_page
+            )
 
-            for page in range(1, country_overall.number_of_pages + 1):
+            for page, job_ids_in_page in enumerate(page_chunks, start=1):
                 jobs_batch = []
                 print(
                     f"Scraping page {page} out of {country_overall.number_of_pages} for jobs in {country.name}"
-                )
-                job_ids_in_page = get_job_ids_per_page_per_country(
-                    page=page, country=country
                 )
                 print(f"Page {page} has {len(job_ids_in_page)} job ids")
                 for job_id in job_ids_in_page:
@@ -59,14 +70,17 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
     """Fetches jobs and loads them into the vector DB"""
     for country in CountryCode:
         country_overall = get_number_of_jobs_and_pages_by_country(country)
+        all_job_ids = get_all_job_ids_per_country(
+            country=country,
+            pages_in_country=country_overall.number_of_pages,
+            total_jobs_in_country=country_overall.total_jobs,
+        )
+        page_chunks = _chunk_job_ids(all_job_ids, country_overall.jobs_per_page)
 
-        for page in range(1, country_overall.number_of_pages + 1):
+        for page, job_ids_in_page in enumerate(page_chunks, start=1):
             jobs_batch: List[JobOpportunity] = []
             print(
                 f"Scraping page {page} out of {country_overall.number_of_pages} for jobs in {country.name}"
-            )
-            job_ids_in_page = get_job_ids_per_page_per_country(
-                page=page, country=country
             )
             print(f"Page {page} has {len(job_ids_in_page)} job ids")
             for job_id in job_ids_in_page:
@@ -93,7 +107,6 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
                         f"⚠️ Warning: Only {len(jobs_batch)}/{len(job_ids_in_page)} jobs were successfully scraped on this page."
                     )
 
-            # 3. Verify: Check the collection status
             info = db_client.get_collection(collection_name)
             print(f"\nCollection Status: {info.status}")
             print(f"Points (Jobs) in DB: {info.points_count}")

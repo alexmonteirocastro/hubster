@@ -1,0 +1,16 @@
+{
+  "title": "Product Manager",
+  "jobRole": "productmanagement",
+  "company": {
+    "name": "Beta Inc",
+    "whatWeDo": "<p>We ship products.</p>"
+  },
+  "description": "<p>Own the roadmap.</p>",
+  "location": {
+    "country": "Sweden",
+    "locality": "Stockholm"
+  },
+  "isRemote": false,
+  "salary": "competitive",
+  "equity": "undisclosed"
+}

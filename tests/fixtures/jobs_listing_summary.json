@@ -1,0 +1,35 @@
+{
+  "total": 120,
+  "pages": 6,
+  "limit": 20,
+  "suggestions": {
+    "remote": 30,
+    "paid": 100,
+    "jobRoles": {
+      "cxo": 1,
+      "humanresources": 2,
+      "finance": 3,
+      "legal": 4,
+      "marketing": 5,
+      "sales": 6,
+      "customerservice": 7,
+      "customersuccess": 8,
+      "analyst": 9,
+      "busines_development": 10,
+      "operations": 11,
+      "productmanagement": 12,
+      "projectmanagement": 13,
+      "design": 14,
+      "uxuidesigner": 15,
+      "engineer": 16,
+      "fullstackdeveloper": 17,
+      "frontenddeveloper": 18,
+      "backenddeveloper": 19,
+      "mobiledevelopment": 20,
+      "qualityassurance": 21,
+      "devops": 22,
+      "datascience": 23,
+      "other": 24
+    }
+  }
+}

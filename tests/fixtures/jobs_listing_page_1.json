@@ -1,0 +1,9 @@
+{
+  "total": 4,
+  "pages": 2,
+  "limit": 2,
+  "docs": [
+    {"id": "job-id-1"},
+    {"id": "job-id-2"}
+  ]
+}
