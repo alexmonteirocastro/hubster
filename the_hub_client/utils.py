@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Set
 
 import requests
 from markdownify import markdownify as md
@@ -134,3 +134,19 @@ def get_all_job_ids_per_country(
         print(f"We couldn't get all job ID's in {country.name}")
 
     return all_job_ids_in_country
+
+
+def get_all_live_job_ids() -> Set[str]:
+    """Collect unique job IDs currently listed on The Hub (listing API only)."""
+    live_job_ids: Set[str] = set()
+
+    for country in CountryCode:
+        country_overall = get_number_of_jobs_and_pages_by_country(country)
+        country_job_ids = get_all_job_ids_per_country(
+            country=country,
+            pages_in_country=country_overall.number_of_pages,
+            total_jobs_in_country=country_overall.total_jobs,
+        )
+        live_job_ids.update(country_job_ids)
+
+    return live_job_ids

@@ -1,15 +1,20 @@
 import csv
 import os
-from typing import List
+from typing import List, Set, Tuple
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 
-from db import load_jobs_into_qdrant
+from db.database import (
+    delete_jobs_from_qdrant,
+    get_indexed_job_ids,
+    load_jobs_into_qdrant,
+)
 from the_hub_client import (
     CountryCode,
     JobOpportunity,
     get_all_job_ids_per_country,
+    get_all_live_job_ids,
     get_number_of_jobs_and_pages_by_country,
     scrape_job_offer_by_id,
 )
@@ -17,6 +22,13 @@ from the_hub_client import (
 load_dotenv()
 
 embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+INGEST_BATCH_SIZE = 15
+
+
+def compute_sync_diff(
+    live_job_ids: Set[str], indexed_job_ids: Set[str]
+) -> Tuple[Set[str], Set[str]]:
+    return live_job_ids - indexed_job_ids, indexed_job_ids - live_job_ids
 
 
 def _chunk_job_ids(job_ids: List[str], chunk_size: int) -> List[List[str]]:
@@ -110,3 +122,61 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
             info = db_client.get_collection(collection_name)
             print(f"\nCollection Status: {info.status}")
             print(f"Points (Jobs) in DB: {info.points_count}")
+
+
+def _scrape_jobs(job_ids: List[str]) -> List[JobOpportunity]:
+    jobs: List[JobOpportunity] = []
+    for job_id in job_ids:
+        try:
+            job_data = scrape_job_offer_by_id(job_id=job_id)
+            if not job_data:
+                print(f"❌ Failed to scrape job_id: {job_id}")
+                continue
+            jobs.append(job_data)
+        except Exception as e:
+            print(f"  ⚠️ Error scraping {job_id}: {e}")
+    return jobs
+
+
+def sync_qdrant_db(db_client: QdrantClient, collection_name: str):
+    """Reconcile Qdrant with live Hub listings: add new jobs, remove delisted ones."""
+    print("Fetching live job IDs from The Hub (listing API only)...")
+    live_job_ids = get_all_live_job_ids()
+    indexed_job_ids = get_indexed_job_ids(db_client, collection_name)
+
+    to_add, to_remove = compute_sync_diff(live_job_ids, indexed_job_ids)
+
+    print(f"Live jobs: {len(live_job_ids)}")
+    print(f"Indexed jobs: {len(indexed_job_ids)}")
+    print(f"New jobs to add: {len(to_add)}")
+    print(f"Stale jobs to remove: {len(to_remove)}")
+
+    if to_remove:
+        delete_jobs_from_qdrant(
+            db_client=db_client,
+            collection_name=collection_name,
+            job_ids=sorted(to_remove),
+        )
+
+    if to_add:
+        to_add_list = sorted(to_add)
+        for batch_start in range(0, len(to_add_list), INGEST_BATCH_SIZE):
+            batch_ids = to_add_list[batch_start : batch_start + INGEST_BATCH_SIZE]
+            print(f"--- Fetching and ingesting {len(batch_ids)} new jobs ---")
+            jobs_batch = _scrape_jobs(batch_ids)
+            if jobs_batch:
+                load_jobs_into_qdrant(
+                    db_client=db_client,
+                    collection_name=collection_name,
+                    jobs=jobs_batch,
+                )
+                if len(jobs_batch) < len(batch_ids):
+                    print(
+                        f"⚠️ Warning: Only {len(jobs_batch)}/{len(batch_ids)} jobs were successfully scraped in this batch."
+                    )
+    elif not to_remove:
+        print("Collection is already up to date — no Hub detail fetches or Qdrant writes needed.")
+
+    info = db_client.get_collection(collection_name)
+    print(f"\nCollection Status: {info.status}")
+    print(f"Points (Jobs) in DB: {info.points_count}")
