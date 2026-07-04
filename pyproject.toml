@@ -5,7 +5,6 @@ description = "Scrape The Hub job portal via API and store embeddings in Qdrant 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "chromadb>=1.4.1",
     "markdownify>=1.2.2",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",

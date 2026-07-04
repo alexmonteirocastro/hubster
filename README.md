@@ -165,5 +165,4 @@ Base URL: `https://thehub.io`
 - [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
 - [ ] Move Qdrant URL / API key to environment variables
 - [ ] Incremental sync (skip already-ingested jobs instead of full reset)
-- [ ] Remove unused `chromadb` dependency
 - [ ] Rate limiting and retry logic for API calls
