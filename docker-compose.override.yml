@@ -11,3 +11,8 @@ services:
     volumes:
       - .:/app
       - /app/.venv
+
+  test:
+    volumes:
+      - .:/app
+      - /app/.venv

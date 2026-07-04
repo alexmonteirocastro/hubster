@@ -38,5 +38,13 @@ services:
         condition: service_healthy
     command: ["python", "main.py"]
 
+  test:
+    build:
+      context: .
+      target: test
+    profiles:
+      - test
+    command: ["pytest", "-v"]
+
 volumes:
   qdrant_data:

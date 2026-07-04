@@ -120,7 +120,7 @@ hubster/
 ├── main.py                      # Scrape, seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
-├── docker-compose.yml           # Qdrant + Streamlit app + ingestion profile
+├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
 ├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
 ├── the_hub_client/
 │   ├── models.py                # Pydantic models (JobOpportunity, CountryCode, …)
@@ -199,6 +199,8 @@ Hubster has two test layers:
 
 ### Run unit tests
 
+**Local (host):**
+
 ```bash
 uv sync --group dev
 uv run pytest
@@ -209,6 +211,14 @@ Verbose output:
 ```bash
 uv run pytest -v
 ```
+
+**Docker:**
+
+```bash
+docker compose --profile test run --rm test
+```
+
+This uses the `test` build target (includes pytest + responses). No Qdrant or network access required. With `docker-compose.override.yml` active, test file edits apply without rebuilding the image.
 
 Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get` boundary.
 
