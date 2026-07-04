@@ -9,13 +9,21 @@ from the_hub_client import JobOpportunity
 
 load_dotenv()
 
-# For local development (saving to a folder)
-client = QdrantClient(url="http://localhost:6333")
 
-# OR for the Cloud Free Tier:
-# client = QdrantClient(url="your-url.aws.cloud.qdrant.io", api_key="your-key")
+def create_qdrant_client() -> QdrantClient:
+    qdrant_url = os.getenv("QDRANT_URL")
+    if not qdrant_url:
+        raise ValueError("QDRANT_URL environment variable is required")
 
-embedding_model = os.getenv("EMBEDDING_MODEL", "")
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    if qdrant_api_key:
+        return QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+    return QdrantClient(url=qdrant_url)
+
+
+client = create_qdrant_client()
+
+embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 client.set_model(embedding_model)  # Tell Qdrant which model to use globally
 
 jobs_collection_name = os.getenv("QDRANT_COLLECTION_NAME", "")
