@@ -74,6 +74,7 @@ def jobs_search(
             detail="Qdrant is unavailable.",
         ) from exc
 
+    # _payload_to_hit raises HTTPException on its own; kept outside try so it isn't swallowed.
     hits = []
     for hit in search_results.points:
         if hit.payload is None:
