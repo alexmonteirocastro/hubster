@@ -15,6 +15,7 @@ from the_hub_client import (
     JobOpportunity,
     get_all_job_ids_per_country,
     get_all_live_job_ids,
+    get_job_ids_per_page_per_country,
     get_number_of_jobs_and_pages_by_country,
     scrape_job_offer_by_id,
 )
@@ -101,14 +102,18 @@ def seed_dev_qdrant_db(
         )
         print(f"Page {page} has {len(job_ids_in_page)} job ids")
 
-        jobs_batch = _scrape_jobs(job_ids_in_page)
-        if jobs_batch:
-            print(f"--- Ingesting {len(jobs_batch)} jobs into dev collection ---")
-            load_jobs_into_qdrant(
-                db_client=db_client,
-                collection_name=collection_name,
-                jobs=jobs_batch,
-            )
+        for batch_start in range(0, len(job_ids_in_page), INGEST_BATCH_SIZE):
+            batch_ids = job_ids_in_page[batch_start : batch_start + INGEST_BATCH_SIZE]
+            jobs_batch = _scrape_jobs(batch_ids)
+            if jobs_batch:
+                print(
+                    f"--- Ingesting {len(jobs_batch)} jobs into dev collection ---"
+                )
+                load_jobs_into_qdrant(
+                    db_client=db_client,
+                    collection_name=collection_name,
+                    jobs=jobs_batch,
+                )
 
     info = db_client.get_collection(collection_name)
     print(f"\nDev collection status: {info.status}")
