@@ -1,5 +1,7 @@
 # Hubster
 
+![Tests](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml/badge.svg)
+
 Hubster ingests job listings from [The Hub](https://thehub.io/) via their public API, embeds the content with FastEmbed, and stores the results in [Qdrant](https://qdrant.tech/) for semantic search.
 
 Use it to build job-discovery tools, RAG chatbots, or analytics over Nordic/European startup job markets.
@@ -225,6 +227,8 @@ Hubster has two test layers:
 
 - **Unit tests** (this section) — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
 - **Retrieval golden-set tests** (planned) — evaluate semantic search quality against a fixed query set in Qdrant.
+
+The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI uses `uv sync --frozen --group dev && uv run pytest -v` directly on the runner (no Docker build) for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
 
 ### Run unit tests
 
