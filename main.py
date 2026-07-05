@@ -1,24 +1,27 @@
 import argparse
-import os
 
-from dotenv import load_dotenv
-
-from db import client, create_collection, query_jobs_in_qdrant, seed_qdrant_db, sync_qdrant_db
-
-load_dotenv()
-
-collection_name = os.getenv("QDRANT_COLLECTION_NAME", "")
+from db import (
+    create_collection,
+    get_qdrant_client,
+    get_settings,
+    query_jobs_in_qdrant,
+    seed_qdrant_db,
+    sync_qdrant_db,
+)
 
 
 def main(mode: str = "sync"):
-    create_collection(client, collection_name)
+    settings = get_settings()
+    client = get_qdrant_client()
+
+    create_collection(client, settings.qdrant_collection_name)
 
     if mode == "seed":
         print("Running full seed (bootstrap)...")
-        seed_qdrant_db(client, collection_name)
+        seed_qdrant_db(client, settings.qdrant_collection_name)
     elif mode == "sync":
         print("Running incremental sync...")
-        sync_qdrant_db(client, collection_name)
+        sync_qdrant_db(client, settings.qdrant_collection_name)
     else:
         raise ValueError(f"Unknown mode: {mode}. Use 'sync' or 'seed'.")
 
@@ -26,7 +29,7 @@ def main(mode: str = "sync"):
 
     response = query_jobs_in_qdrant(
         db_client=client,
-        collection_name=collection_name,
+        collection_name=settings.qdrant_collection_name,
         query_text="Looking for a Python developer in Denmark",
     )
 

@@ -1,36 +1,14 @@
-import os
 import uuid
 from typing import List, Set
 
-from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 
+from db.settings import get_settings
 from the_hub_client import JobOpportunity
-
-load_dotenv()
 
 
 def job_id_to_point_id(job_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, job_id))
-
-
-def create_qdrant_client() -> QdrantClient:
-    qdrant_url = os.getenv("QDRANT_URL")
-    if not qdrant_url:
-        raise ValueError("QDRANT_URL environment variable is required")
-
-    qdrant_api_key = os.getenv("QDRANT_API_KEY")
-    if qdrant_api_key:
-        return QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
-    return QdrantClient(url=qdrant_url)
-
-
-client = create_qdrant_client()
-
-embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-client.set_model(embedding_model)  # Tell Qdrant which model to use globally
-
-jobs_collection_name = os.getenv("QDRANT_COLLECTION_NAME", "")
 
 
 def create_collection(db_client: QdrantClient, collection_name: str):
@@ -38,8 +16,7 @@ def create_collection(db_client: QdrantClient, collection_name: str):
     if not db_client.collection_exists(collection_name):
         db_client.create_collection(
             collection_name=collection_name,
-            # Dense vectors config (for semantic search)
-            vectors_config=client.get_fastembed_vector_params(),
+            vectors_config=db_client.get_fastembed_vector_params(),
         )
 
 
@@ -53,7 +30,8 @@ def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
 def load_jobs_into_qdrant(
     db_client: QdrantClient, collection_name: str, jobs: List[JobOpportunity]
 ):
-    # Prepare documents for embedding
+    embedding_model = get_settings().embedding_model
+
     jobs_documents = [
         f"Job Title: {job.job_title}\nCompany: {job.company}\nCompany Description: {job.company_description}\nJob Description: {job.job_description}"
         for job in jobs
@@ -88,7 +66,6 @@ def load_jobs_into_qdrant(
         )
     ]
 
-    # QDrant handles the embedding and ID generation
     db_client.upsert(collection_name=collection_name, points=points)
 
     print(f"{len(jobs_documents)} jobs ingested into the vector database")
@@ -138,6 +115,7 @@ def delete_jobs_from_qdrant(
 def query_jobs_in_qdrant(
     db_client: QdrantClient, collection_name: str, query_text: str
 ):
+    embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
 
     search_results = db_client.query_points(
@@ -162,7 +140,6 @@ def clear_db(db_client: QdrantClient, collection_name: str):
     if db_client.collection_exists(collection_name):
         db_client.delete(
             collection_name=collection_name,
-            # Using a FilterSelector with an empty Filter matches everything
             points_selector=models.FilterSelector(filter=models.Filter()),
         )
         print(f"🧹 All jobs cleared from '{collection_name}'.")
