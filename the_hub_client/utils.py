@@ -1,8 +1,8 @@
 from typing import List, Set
 
-import requests
 from markdownify import markdownify as md
 
+from the_hub_client.http import hub_get
 from the_hub_client.models import (
     CountryCode,
     JobOpenings,
@@ -17,7 +17,7 @@ SINGLE_JOB_ENDPOINT_ROUTE = "/api/jobs/single/"
 
 
 def get_number_of_jobs_and_pages_by_country(country: CountryCode) -> JobsAndPages:
-    response = requests.get(
+    response = hub_get(
         f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?countryCode={country.value}"
     )
     jobs_listing_response = response.json()
@@ -30,7 +30,7 @@ def get_number_of_jobs_and_pages_by_country(country: CountryCode) -> JobsAndPage
 
 
 def get_full_jobs_picture_by_country(country: CountryCode) -> JobOpenings:
-    response = requests.get(
+    response = hub_get(
         f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?countryCode={country.value}"
     )
     jobs_listing_response = response.json()
@@ -74,7 +74,7 @@ def get_full_jobs_picture_by_country(country: CountryCode) -> JobOpenings:
 
 
 def get_job_ids_per_page_per_country(page: int, country: CountryCode) -> List[str]:
-    response = requests.get(
+    response = hub_get(
         f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?page={page}&countryCode={country.value}"
     )
     jobs_listing_response = response.json()
@@ -85,7 +85,7 @@ def get_job_ids_per_page_per_country(page: int, country: CountryCode) -> List[st
 
 
 def scrape_job_offer_by_id(job_id: str) -> JobOpportunity:
-    response = requests.get(f"{HUB_BASE_URL}{SINGLE_JOB_ENDPOINT_ROUTE}/{job_id}")
+    response = hub_get(f"{HUB_BASE_URL}{SINGLE_JOB_ENDPOINT_ROUTE}/{job_id}")
     single_job_response = response.json()
     job_salary_type = single_job_response.get("salary", "")
 
