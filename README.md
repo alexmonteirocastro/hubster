@@ -43,6 +43,7 @@ cp .env.example .env
 | `QDRANT_URL` | Qdrant HTTP endpoint (required) | `http://localhost:6333` (host) / set automatically in Compose |
 | `QDRANT_API_KEY` | Qdrant Cloud API key (optional) | *(leave empty for local Qdrant)* |
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
+| `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
 | `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
 
 Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error at first use, not a silently empty string. The Qdrant client is constructed lazily via `get_qdrant_client()` on first real use, so importing `db` does not open a network connection.
@@ -225,10 +226,10 @@ Base URL: `https://thehub.io`
 
 Hubster has two test layers:
 
-- **Unit tests** (this section) — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
-- **Retrieval golden-set tests** (planned) — evaluate semantic search quality against a fixed query set in Qdrant.
+- **Unit tests** — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
+- **Retrieval golden-set tests** — evaluate semantic search quality against a fixed query set in the dev Qdrant collection (`JOBS_DEV`). See [tests/README.md](tests/README.md).
 
-The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI uses `uv sync --frozen --group dev && uv run pytest -v` directly on the runner (no Docker build) for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
+The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI uses `uv sync --frozen --group dev && uv run pytest -v -m "not retrieval"` directly on the runner (no Docker build) for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
 
 ### Run unit tests
 
@@ -236,7 +237,7 @@ The unit test suite runs automatically on every push to `main` and on every pull
 
 ```bash
 uv sync --group dev
-uv run pytest
+uv run pytest -m "not retrieval"
 ```
 
 Verbose output:
@@ -251,7 +252,13 @@ uv run pytest -v
 docker compose --profile test run --rm test
 ```
 
-This uses the `test` build target (includes pytest + responses). No Qdrant or network access required. With `docker-compose.override.yml` active, test file edits apply without rebuilding the image.
+Retrieval golden-set tests (require Qdrant — see [tests/README.md](tests/README.md)):
+
+```bash
+docker compose --profile test run --rm test-retrieval
+```
+
+This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, test file edits apply without rebuilding the image.
 
 Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get` boundary.
 

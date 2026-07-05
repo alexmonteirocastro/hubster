@@ -1,0 +1,20 @@
+{
+  "top_k": 5,
+  "queries": [
+    {
+      "id": "backend-copenhagen",
+      "query": "remote backend engineer building APIs in Copenhagen Denmark",
+      "expected_job_ids": ["abc123"]
+    },
+    {
+      "id": "product-manager-stockholm",
+      "query": "product manager owning the roadmap in Stockholm Sweden",
+      "expected_job_ids": ["def456"]
+    },
+    {
+      "id": "analyst-numbers",
+      "query": "analyst crunching numbers",
+      "expected_job_ids": ["ghi789"]
+    }
+  ]
+}

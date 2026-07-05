@@ -15,9 +15,14 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(validation_alias="QDRANT_URL")
     qdrant_api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
     qdrant_collection_name: str = Field(validation_alias="QDRANT_COLLECTION_NAME")
+    qdrant_dev_collection_name: str = Field(
+        default="JOBS_DEV", validation_alias="QDRANT_DEV_COLLECTION_NAME"
+    )
     embedding_model: str = Field(validation_alias="EMBEDDING_MODEL")
 
-    @field_validator("qdrant_url", "qdrant_collection_name", "embedding_model")
+    @field_validator(
+        "qdrant_url", "qdrant_collection_name", "qdrant_dev_collection_name", "embedding_model"
+    )
     @classmethod
     def must_not_be_empty(cls, value: str) -> str:
         if not value.strip():

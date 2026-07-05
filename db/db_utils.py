@@ -4,7 +4,9 @@ from typing import List, Set, Tuple
 from qdrant_client import QdrantClient
 
 from db.database import (
+    create_collection,
     delete_jobs_from_qdrant,
+    drop_db,
     get_indexed_job_ids,
     load_jobs_into_qdrant,
 )
@@ -71,6 +73,46 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
                 writer.writerows(jobs_batch)  # type: ignore
 
     print("Al jobs loaded")
+
+
+def seed_dev_qdrant_db(
+    db_client: QdrantClient,
+    collection_name: str,
+    *,
+    country: CountryCode = CountryCode.DENMARK,
+    max_pages: int = 2,
+    reset: bool = True,
+):
+    """Seed a small country sample for retrieval evaluation (fast reload)."""
+    if reset:
+        drop_db(db_client, collection_name)
+    create_collection(db_client, collection_name)
+
+    country_overall = get_number_of_jobs_and_pages_by_country(country)
+    pages_to_fetch = min(max_pages, country_overall.number_of_pages)
+    if pages_to_fetch == 0:
+        print(f"No pages available for {country.name} — nothing to seed.")
+        return
+
+    for page in range(1, pages_to_fetch + 1):
+        job_ids_in_page = get_job_ids_per_page_per_country(page=page, country=country)
+        print(
+            f"Scraping dev sample page {page}/{pages_to_fetch} for jobs in {country.name}"
+        )
+        print(f"Page {page} has {len(job_ids_in_page)} job ids")
+
+        jobs_batch = _scrape_jobs(job_ids_in_page)
+        if jobs_batch:
+            print(f"--- Ingesting {len(jobs_batch)} jobs into dev collection ---")
+            load_jobs_into_qdrant(
+                db_client=db_client,
+                collection_name=collection_name,
+                jobs=jobs_batch,
+            )
+
+    info = db_client.get_collection(collection_name)
+    print(f"\nDev collection status: {info.status}")
+    print(f"Points (jobs) in dev collection: {info.points_count}")
 
 
 def seed_qdrant_db(db_client: QdrantClient, collection_name: str):

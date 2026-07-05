@@ -113,7 +113,11 @@ def delete_jobs_from_qdrant(
 
 
 def query_jobs_in_qdrant(
-    db_client: QdrantClient, collection_name: str, query_text: str
+    db_client: QdrantClient,
+    collection_name: str,
+    query_text: str,
+    *,
+    limit: int = 5,
 ):
     embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
@@ -122,7 +126,7 @@ def query_jobs_in_qdrant(
         collection_name=collection_name,
         query=models.Document(text=query_text, model=embedding_model),
         using=vector_name,
-        limit=5,
+        limit=limit,
     )
 
     return search_results

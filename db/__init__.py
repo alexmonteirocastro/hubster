@@ -10,6 +10,7 @@ from db.database import (
 from db.db_utils import (
     compute_sync_diff,
     load_jobs_data_into_csv,
+    seed_dev_qdrant_db,
     seed_qdrant_db,
     sync_qdrant_db,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "get_qdrant_client",
     "get_settings",
     "query_jobs_in_qdrant",
+    "seed_dev_qdrant_db",
     "seed_qdrant_db",
     "sync_qdrant_db",
     "clear_db",
