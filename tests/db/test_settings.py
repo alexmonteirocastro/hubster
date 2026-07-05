@@ -63,6 +63,7 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.qdrant_url == "http://localhost:6333"
     assert settings.qdrant_api_key is None
     assert settings.qdrant_collection_name == "JOBS_ON_THE_HUB"
+    assert settings.qdrant_dev_collection_name == "JOBS_DEV"
     assert settings.embedding_model == "BAAI/bge-small-en-v1.5"
 
 

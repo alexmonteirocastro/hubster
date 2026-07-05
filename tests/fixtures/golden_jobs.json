@@ -1,0 +1,44 @@
+[
+  {
+    "job_id": "abc123",
+    "job_title": "Backend Engineer",
+    "company": "Acme Corp",
+    "job_role": "backenddeveloper",
+    "company_description": "We build things.",
+    "job_description": "Build APIs.",
+    "country": "Denmark",
+    "locality": "Copenhagen",
+    "remote": true,
+    "salary_type": "range",
+    "salary": "Ranging from 500000 to 700000",
+    "equity": "0.1%"
+  },
+  {
+    "job_id": "def456",
+    "job_title": "Product Manager",
+    "company": "Beta Inc",
+    "job_role": "productmanagement",
+    "company_description": "We ship products.",
+    "job_description": "Own the roadmap.",
+    "country": "Sweden",
+    "locality": "Stockholm",
+    "remote": false,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
+  },
+  {
+    "job_id": "ghi789",
+    "job_title": "Analyst",
+    "company": "Gamma Ltd",
+    "job_role": "analyst",
+    "company_description": "",
+    "job_description": "Crunch numbers.",
+    "country": "N/A",
+    "locality": "N/A",
+    "remote": false,
+    "salary_type": "",
+    "salary": "N/A",
+    "equity": "N/A"
+  }
+]

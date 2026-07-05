@@ -16,3 +16,8 @@ services:
     volumes:
       - .:/app
       - /app/.venv
+
+  test-retrieval:
+    volumes:
+      - .:/app
+      - /app/.venv

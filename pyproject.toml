@@ -23,3 +23,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "retrieval: semantic search golden-set tests (require local Qdrant)",
+]

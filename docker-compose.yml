@@ -48,7 +48,22 @@ services:
       target: test
     profiles:
       - test
-    command: ["pytest", "-v"]
+    command: ["pytest", "-v", "-m", "not retrieval"]
+
+  test-retrieval:
+    build:
+      context: .
+      target: test
+    profiles:
+      - test
+    env_file:
+      - .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    command: ["pytest", "-v", "-m", "retrieval"]
 
 volumes:
   qdrant_data:
