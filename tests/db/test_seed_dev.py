@@ -45,8 +45,10 @@ def test_seed_dev_qdrant_db_ingests_listing_pages_in_batches(monkeypatch):
         "db.db_utils._scrape_jobs",
         lambda batch_ids: [_sample_job(job_id) for job_id in batch_ids],
     )
-    monkeypatch.setattr("db.db_utils.drop_db", lambda *args, **kwargs: None)
-    monkeypatch.setattr("db.db_utils.create_collection", lambda *args, **kwargs: None)
+    drop_db = MagicMock()
+    create_collection = MagicMock()
+    monkeypatch.setattr("db.db_utils.drop_db", drop_db)
+    monkeypatch.setattr("db.db_utils.create_collection", create_collection)
 
     def _record_ingest(db_client, collection_name, jobs):
         ingested_batches.append([job.job_id for job in jobs])
@@ -61,6 +63,8 @@ def test_seed_dev_qdrant_db_ingests_listing_pages_in_batches(monkeypatch):
         reset=True,
     )
 
+    drop_db.assert_called_once_with(db_client, "JOBS_DEV")
+    create_collection.assert_called_once_with(db_client, "JOBS_DEV")
     assert ingested_batches == [
         job_ids[:INGEST_BATCH_SIZE],
         job_ids[INGEST_BATCH_SIZE:],
