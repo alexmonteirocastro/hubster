@@ -22,7 +22,7 @@ def _sample_job(job_id: str) -> JobOpportunity:
     )
 
 
-def test_seed_dev_qdrant_db_ingests_listing_pages_in_batches(monkeypatch):
+def test_seed_dev_qdrant_db_batches_and_resets_when_reset_true(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = MagicMock(status="green", points_count=2)
 
@@ -69,3 +69,22 @@ def test_seed_dev_qdrant_db_ingests_listing_pages_in_batches(monkeypatch):
         job_ids[:INGEST_BATCH_SIZE],
         job_ids[INGEST_BATCH_SIZE:],
     ]
+
+
+def test_seed_dev_qdrant_db_preserves_collection_when_reset_false(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = MagicMock(status="green", points_count=0)
+
+    monkeypatch.setattr(
+        "db.db_utils.get_number_of_jobs_and_pages_by_country",
+        lambda country: JobsAndPages(total_jobs=0, number_of_pages=0, jobs_per_page=0),
+    )
+    drop_db = MagicMock()
+    create_collection = MagicMock()
+    monkeypatch.setattr("db.db_utils.drop_db", drop_db)
+    monkeypatch.setattr("db.db_utils.create_collection", create_collection)
+
+    seed_dev_qdrant_db(db_client, "JOBS_DEV", reset=False)
+
+    drop_db.assert_not_called()
+    create_collection.assert_called_once_with(db_client, "JOBS_DEV")
