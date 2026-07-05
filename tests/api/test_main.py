@@ -4,6 +4,7 @@ from unittest.mock import patch
 import requests
 import responses
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from api.main import app
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
@@ -104,8 +105,56 @@ def test_jobs_search_returns_clean_json(
 
 
 @patch("api.main.get_qdrant_client", side_effect=ConnectionError("refused"))
-def test_jobs_search_returns_503_when_qdrant_is_unavailable(mock_get_qdrant_client):
+@patch("api.main.get_settings")
+def test_jobs_search_returns_503_when_qdrant_is_unavailable(
+    mock_get_settings, mock_get_qdrant_client
+):
+    mock_get_settings.return_value = SimpleNamespace(
+        qdrant_collection_name="JOBS_ON_THE_HUB"
+    )
+
     response = client.get("/jobs/search", params={"q": "python developer"})
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Qdrant is unavailable."
+
+
+@patch("api.main.get_settings", side_effect=ValidationError.from_exception_data("Settings", []))
+def test_jobs_search_returns_500_when_configuration_is_invalid(mock_get_settings):
+    response = client.get("/jobs/search", params={"q": "python developer"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Server configuration is invalid."
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_jobs_search_returns_502_when_payload_is_missing_fields(
+    mock_get_settings, mock_get_qdrant_client, mock_query_jobs
+):
+    mock_get_settings.return_value = SimpleNamespace(
+        qdrant_collection_name="JOBS_ON_THE_HUB"
+    )
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.91,
+                payload={
+                    "job_url_identifier": "job-123",
+                    "job_role": "Backend Developer",
+                    "Country": "Denmark",
+                    "location": "Copenhagen",
+                    "Remote": True,
+                    "Salary Type": "paid",
+                    "Salary": "Competitive",
+                },
+            )
+        ]
+    )
+
+    response = client.get("/jobs/search", params={"q": "python developer"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Search result payload is missing required fields."
