@@ -29,10 +29,14 @@ services:
 
   test:
     volumes:
-      - .:/app
-      - /app/.venv
+      - ./tests:/app/tests
+      - ./the_hub_client:/app/the_hub_client
+      - ./api:/app/api
+      - ./db:/app/db
 
   test-retrieval:
     volumes:
-      - .:/app
-      - /app/.venv
+      - ./tests:/app/tests
+      - ./the_hub_client:/app/the_hub_client
+      - ./api:/app/api
+      - ./db:/app/db
