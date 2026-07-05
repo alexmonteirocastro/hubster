@@ -60,6 +60,7 @@ This starts:
 
 - **qdrant** — vector database on `localhost:6333` (persisted volume)
 - **app** — Streamlit dashboard on [localhost:8501](http://localhost:8501)
+- **api** — FastAPI backend on [localhost:8000](http://localhost:8000) ([Swagger UI](http://localhost:8000/docs))
 
 ### 3. Run ingestion
 
@@ -141,12 +142,36 @@ uv run streamlit run streamlit_app.py
 - **Jobs tab** — live stats from The Hub API (totals and breakdown by role)
 - **Chat tab** — placeholder demo; not yet wired to Qdrant
 
+## REST API
+
+The FastAPI service exposes a stable JSON contract for any frontend or client. It wraps existing Hubster logic — it does not reimplement ingestion or retrieval.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /jobs/stats?country={code}` | Job totals and role breakdown for a country (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) |
+| `GET /jobs/search?q={query}&limit={n}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`) |
+
+Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when the `api` service is running.
+
+**Run locally (without Docker):**
+
+```bash
+uv run uvicorn api.main:app --reload --port 8000
+```
+
+Requires `.env` with Qdrant settings and a running Qdrant instance (see above). Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests.
+
+> Any future frontend should call this API rather than Qdrant or The Hub directly.
+
 ## Project structure
 
 ```
 hubster/
 ├── main.py                      # Sync/seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
+├── api/
+│   ├── main.py                  # FastAPI app (jobs stats + semantic search)
+│   └── schemas.py               # API response models
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
 ├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
 ├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
@@ -266,6 +291,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get`
 
 - [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
+- [x] FastAPI backend for job stats and semantic search
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [ ] Rate limiting and retry logic for API calls
