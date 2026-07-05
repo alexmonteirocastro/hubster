@@ -267,4 +267,5 @@ Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get`
 - [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
+- [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [ ] Rate limiting and retry logic for API calls
