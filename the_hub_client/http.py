@@ -1,3 +1,36 @@
+"""Outbound HTTP client for The Hub API.
+
+Wraps ``requests`` with retry, exponential backoff, client-side pacing, and
+fail-fast on 4xx. All Hub API calls in ``the_hub_client.utils`` go through
+``hub_get()``.
+
+Known limitations (conscious deferrals — revisit before scaling ingestion):
+
+* **Sequential-only pacing.** Module-level ``_session``, ``_config``, and
+  ``_last_request_at`` are not thread-safe. Ingestion today is strictly
+  sequential (``_scrape_jobs`` fetches one job at a time), so pacing is correct.
+  If ingestion is parallelized (e.g. ``ThreadPoolExecutor`` per country or
+  batch), revisit this module: add a ``threading.Lock`` around pacing and/or
+  per-worker sessions — do not assume the current globals survive concurrency.
+
+* **No backoff jitter.** ``Retry.backoff_factor`` produces deterministic retry
+  timing. Fine for a single-process script; multiple parallel workers can
+  thundering-herd the upstream API. Add random jitter before running concurrent
+  ingestion workers.
+
+* **Single timeout for connect and read.** ``timeout_seconds`` is passed as a
+  scalar to ``requests`` (same limit for both phases). Split into
+  ``timeout=(connect, read)`` if hangs need finer diagnosis.
+
+* **Config loaded once per process.** ``get_hub_client_config()`` caches env
+  on first use (same pattern as ``get_qdrant_client()``). Mid-process env
+  changes have no effect until ``configure_hub_client()`` /
+  ``reset_hub_client()`` is called.
+
+Follow-up (not in scope for ALE-71): retry/backoff metrics so degrading upstream
+API health is visible before outright failures.
+"""
+
 import os
 import time
 from dataclasses import dataclass
@@ -32,6 +65,7 @@ _last_request_at: float | None = None
 
 
 def get_hub_client_config() -> HubClientConfig:
+    """Return cached config, loading from env on first call."""
     global _config
     if _config is None:
         _config = HubClientConfig.from_env()
@@ -39,7 +73,10 @@ def get_hub_client_config() -> HubClientConfig:
 
 
 def configure_hub_client(config: HubClientConfig | None = None) -> None:
-    """Replace client config and drop cached session (used in tests)."""
+    """Replace client config and drop cached session (used in tests).
+
+    Pass ``None`` to reload from env on the next ``hub_get()`` call.
+    """
     global _config, _session, _last_request_at
     _config = config
     _session = None
@@ -75,6 +112,7 @@ def _get_session() -> requests.Session:
 
 
 def _apply_pacing(config: HubClientConfig) -> None:
+    """Enforce minimum delay between requests. Sequential ingestion only — see module docstring."""
     global _last_request_at
     if config.request_delay_seconds <= 0:
         return

@@ -259,6 +259,8 @@ Outbound calls go through `the_hub_client/http.py`, which wraps `requests` with:
 
 During ingestion, a job that still fails after bounded retries is skipped; the overall run continues with remaining jobs.
 
+> **Note:** Pacing and the shared session assume sequential ingestion. Parallel fetch workers require revisiting `the_hub_client/http.py` (see module docstring).
+
 ## Testing
 
 Hubster has two test layers:
@@ -307,3 +309,4 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [x] Rate limiting and retry logic for API calls
+- [ ] Backoff jitter and retry metrics for outbound Hub API calls (before parallel ingestion)
