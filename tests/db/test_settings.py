@@ -27,6 +27,18 @@ def test_importing_db_does_not_require_env(monkeypatch):
     import db  # noqa: F401
 
 
+def test_db_public_api_matches_all_and_drops_legacy_client(monkeypatch):
+    for var in REQUIRED_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+    import db
+
+    for name in db.__all__:
+        assert hasattr(db, name), f"db.{name} is listed in __all__ but not exported"
+
+    assert not hasattr(db, "client"), "legacy module-level client must not be re-exported"
+
+
 def test_get_settings_raises_when_required_env_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     for var in REQUIRED_ENV_VARS:
