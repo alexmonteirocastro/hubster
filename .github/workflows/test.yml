@@ -6,9 +6,16 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +23,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+          python-version: "3.12"
 
       - name: Install dependencies
         run: uv sync --frozen --group dev

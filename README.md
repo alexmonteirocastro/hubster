@@ -228,7 +228,7 @@ Hubster has two test layers:
 - **Unit tests** (this section) — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
 - **Retrieval golden-set tests** (planned) — evaluate semantic search quality against a fixed query set in Qdrant.
 
-The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI uses `uv sync --group dev && uv run pytest -v` directly on the runner (no Docker build) for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
+The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI uses `uv sync --frozen --group dev && uv run pytest -v` directly on the runner (no Docker build) for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
 
 ### Run unit tests
 
