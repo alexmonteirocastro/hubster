@@ -9,7 +9,7 @@ uv sync --group dev
 uv run pytest -v -m "not retrieval"
 ```
 
-CI runs this subset on every push and pull request.
+CI runs unit tests on every push and pull request. Retrieval golden-set tests also run in CI against a Qdrant service container (see `.github/workflows/test.yml`).
 
 **Docker:**
 

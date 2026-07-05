@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  unit-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -30,3 +30,54 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest -v -m "not retrieval"
+
+  retrieval-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-retrieval
+      cancel-in-progress: true
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          python-version: "3.12"
+
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/fastembed
+            ~/.cache/huggingface
+          key: fastembed-${{ runner.os }}-bge-small-en-v1.5
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Wait for Qdrant
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -sf http://localhost:6333/collections >/dev/null; then
+              echo "Qdrant is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Qdrant did not become ready in time"
+          exit 1
+
+      - name: Run retrieval golden-set tests
+        env:
+          QDRANT_URL: http://localhost:6333
+          QDRANT_COLLECTION_NAME: JOBS_ON_THE_HUB
+          QDRANT_DEV_COLLECTION_NAME: JOBS_DEV
+          EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
+        run: uv run pytest -v -m retrieval
