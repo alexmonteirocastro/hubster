@@ -45,6 +45,10 @@ cp .env.example .env
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
 | `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
+| `HUB_CLIENT_MAX_RETRIES` | Retries for transient Hub API failures (optional) | `3` |
+| `HUB_CLIENT_BACKOFF_FACTOR` | Exponential backoff base between retries (optional) | `1.0` |
+| `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
+| `HUB_CLIENT_TIMEOUT` | Per-request timeout in seconds (optional) | `30.0` |
 
 Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error at first use, not a silently empty string. The Qdrant client is constructed lazily via `get_qdrant_client()` on first real use, so importing `db` does not open a network connection.
 
@@ -247,6 +251,16 @@ load_jobs_data_into_csv("jobs_preview.csv")  # writes to tmp/
 
 Base URL: `https://thehub.io`
 
+Outbound calls go through `the_hub_client/http.py`, which wraps `requests` with:
+
+- **Retries with exponential backoff** on timeouts, connection errors, and 5xx responses (configurable via `HUB_CLIENT_MAX_RETRIES` and `HUB_CLIENT_BACKOFF_FACTOR`)
+- **Fail-fast on 4xx** — e.g. a delisted job returning 404 is not retried
+- **Client-side pacing** — a small delay between requests (`HUB_CLIENT_REQUEST_DELAY`, default 0.25s) as a courteous default when scraping many pages
+
+During ingestion, a job that still fails after bounded retries is skipped; the overall run continues with remaining jobs.
+
+> **Note:** Pacing and the shared session assume sequential ingestion. Parallel fetch workers require revisiting `the_hub_client/http.py` (see module docstring).
+
 ## Testing
 
 Hubster has two test layers:
@@ -277,15 +291,23 @@ uv run pytest -v
 docker compose --profile test run --rm test
 ```
 
+After changing dependencies in `pyproject.toml` / `uv.lock`, rebuild the test image first:
+
+```bash
+docker compose --profile test build test
+```
+
+The test containers bind-mount source packages (`tests/`, `the_hub_client/`, `api/`, `db/`) but use the Linux virtualenv baked into the image — not your host `.venv`. This avoids stale cached volumes when dependencies change.
+
 Retrieval golden-set tests (require Qdrant — see [tests/README.md](tests/README.md)):
 
 ```bash
 docker compose --profile test run --rm test-retrieval
 ```
 
-This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, test file edits apply without rebuilding the image.
+This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, edits under the mounted source packages apply without rebuilding the image (rebuild only when dependencies change).
 
-Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get` boundary.
+Tests live under `tests/` and use `responses` to mock HTTP at the Hub client boundary (`hub_get`).
 
 ## Roadmap / known limitations
 
@@ -294,4 +316,5 @@ Tests live under `tests/` and use `responses` to mock HTTP at the `requests.get`
 - [x] FastAPI backend for job stats and semantic search
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
-- [ ] Rate limiting and retry logic for API calls
+- [x] Rate limiting and retry logic for API calls
+- [ ] Backoff jitter and retry metrics for outbound Hub API calls (before parallel ingestion)
