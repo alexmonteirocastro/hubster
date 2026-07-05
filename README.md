@@ -38,10 +38,12 @@ cp .env.example .env
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `QDRANT_URL` | Qdrant HTTP endpoint | `http://localhost:6333` (host) / set automatically in Compose |
+| `QDRANT_URL` | Qdrant HTTP endpoint (required) | `http://localhost:6333` (host) / set automatically in Compose |
 | `QDRANT_API_KEY` | Qdrant Cloud API key (optional) | *(leave empty for local Qdrant)* |
-| `QDRANT_COLLECTION_NAME` | Qdrant collection name | `JOBS_ON_THE_HUB` |
-| `EMBEDDING_MODEL` | FastEmbed model ID | `BAAI/bge-small-en-v1.5` |
+| `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
+| `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
+
+Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error at first use, not a silently empty string. The Qdrant client is constructed lazily via `get_qdrant_client()` on first real use, so importing `db` does not open a network connection.
 
 > In Docker Compose, `QDRANT_URL` is overridden to `http://qdrant:6333` so the app container reaches Qdrant by service name.
 
@@ -149,7 +151,8 @@ hubster/
 │   ├── models.py                # Pydantic models (JobOpportunity, CountryCode, …)
 │   └── utils.py                 # The Hub API client
 ├── db/
-│   ├── database.py              # Qdrant client, collection CRUD, embedding, search
+│   ├── settings.py              # Settings (pydantic-settings) + lazy Qdrant client factory
+│   ├── database.py              # Qdrant collection CRUD, embedding, search
 │   └── db_utils.py              # seed_qdrant_db(), sync_qdrant_db(), CSV export
 ├── pyproject.toml
 ├── tests/
@@ -182,13 +185,16 @@ Point IDs are deterministic UUID5 values derived from the Hub job ID.
 ## Programmatic usage
 
 ```python
-from db import client, create_collection, query_jobs_in_qdrant
+from db import create_collection, get_qdrant_client, get_settings, query_jobs_in_qdrant
 
-create_collection(client, "JOBS_ON_THE_HUB")
+settings = get_settings()
+client = get_qdrant_client()
+
+create_collection(client, settings.qdrant_collection_name)
 
 results = query_jobs_in_qdrant(
     db_client=client,
-    collection_name="JOBS_ON_THE_HUB",
+    collection_name=settings.qdrant_collection_name,
     query_text="Looking for a Python developer in Denmark",
 )
 

@@ -1,8 +1,6 @@
 import csv
-import os
 from typing import List, Set, Tuple
 
-from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 
 from db.database import (
@@ -19,9 +17,6 @@ from the_hub_client import (
     scrape_job_offer_by_id,
 )
 
-load_dotenv()
-
-embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 INGEST_BATCH_SIZE = 15
 
 
