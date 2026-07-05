@@ -17,6 +17,8 @@ CI runs this subset on every push and pull request.
 docker compose --profile test run --rm test
 ```
 
+`seed_dev_qdrant_db` reset and batching behavior is covered by unit tests in `tests/db/test_seed_dev.py` (no Qdrant or network). That is separate from the `@pytest.mark.retrieval` golden-set tests below, which exercise semantic search quality only.
+
 ## Retrieval golden-set tests
 
 Evaluate semantic search quality in isolation via `query_jobs_in_qdrant`, using a dedicated dev Qdrant collection (`JOBS_DEV` by default). These tests never touch the production collection (`JOBS_ON_THE_HUB`).
