@@ -133,7 +133,7 @@ def test_chat_sources_match_context_passed_to_generator(
     assert body["generated"] is True
     assert len(body["sources"]) == 1
     assert body["sources"][0]["job_id"] == "job-with-text"
-    assert "job-without-text" not in body["sources"][0]["job_id"]
+    assert "job-without-text" not in [source["job_id"] for source in body["sources"]]
     context, _question = fake_generator.calls[0]
     assert "job-with-text" in context
     assert "job-without-text" not in context

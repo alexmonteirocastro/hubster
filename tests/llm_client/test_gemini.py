@@ -30,6 +30,16 @@ def _mock_response(text: str):
     return response
 
 
+@patch("llm_client.gemini.genai.Client")
+def test_gemini_client_uses_millisecond_http_timeout(mock_client_cls):
+    GeminiGenerator(_settings(timeout_seconds=30.0))
+
+    mock_client_cls.assert_called_once_with(
+        api_key="test-key",
+        http_options={"timeout": 30000},
+    )
+
+
 def test_gemini_generate_returns_trimmed_text():
     client = MagicMock()
     client.models.generate_content.return_value = _mock_response("  hello world  ")

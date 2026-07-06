@@ -137,8 +137,7 @@ def chat(
             detail="Qdrant is unavailable.",
         ) from exc
 
-    points = [point for point in search_results.points if point.payload is not None]
-    usable_points = filter_usable_points(points)
+    usable_points = filter_usable_points(search_results.points)
 
     if not usable_points:
         return ChatResponse(
