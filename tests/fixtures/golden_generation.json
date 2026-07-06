@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "id": "backend_copenhagen",
+      "query": "remote backend engineer building APIs in Copenhagen Denmark",
+      "expected_behavior": "generation",
+      "expected_source_job_ids": ["abc123"],
+      "mock_answer_substring": "backend"
+    },
+    {
+      "id": "product_manager_stockholm",
+      "query": "product manager owning the roadmap in Stockholm Sweden",
+      "expected_behavior": "generation",
+      "expected_source_job_ids": ["def456"],
+      "mock_answer_substring": "product"
+    }
+  ]
+}

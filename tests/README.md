@@ -6,10 +6,10 @@ Mock The Hub API responses and verify parsing, settings, and sync diff logic. No
 
 ```bash
 uv sync --group dev
-uv run pytest -v -m "not retrieval"
+uv run pytest -v -m "not retrieval and not generation"
 ```
 
-CI runs unit tests on every push and pull request. Retrieval golden-set tests also run in CI against a Qdrant service container (see `.github/workflows/test.yml`).
+CI runs unit tests on every push and pull request. Retrieval golden-set and generation eval tests also run in CI against a Qdrant service container (see `.github/workflows/test.yml`).
 
 **Docker:**
 
@@ -68,3 +68,38 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
 3. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all cases pass.
 
 If you reseed from live data with `--seed-dev`, pick real `job_id` values from that collection when updating `expected_job_ids`.
+
+## Generation eval tests
+
+Evaluate `/chat` orchestration (retrieval → context assembly → `Generator` invocation) using the same dev Qdrant collection as the retrieval golden-set. These tests use a scripted `Generator` — no live Gemini API calls.
+
+### Prerequisites
+
+Same as retrieval tests: local Qdrant, `.env` with distinct production/dev collection names.
+
+### Run generation eval tests
+
+**Local (host):**
+
+```bash
+uv run pytest -v -m generation
+```
+
+**Docker (combined with retrieval):**
+
+```bash
+docker compose --profile test run --rm test-retrieval
+```
+
+### Update the generation eval set
+
+1. Keep `tests/fixtures/golden_jobs.json` aligned with the retrieval corpus.
+2. Edit `tests/fixtures/golden_generation.json`:
+   - `query` — natural-language question passed to `/chat`
+   - `expected_source_job_ids` — Hub job IDs that must appear in the response `sources`
+   - `mock_answer_substring` — substring expected in the scripted generator's answer
+3. Run `uv run pytest -v -m generation` and adjust until all cases pass.
+
+Generation eval tests live in `tests/db/test_generation.py` alongside the retrieval golden-set (shared `retrieval_qdrant` fixture).
+
+Zero-retrieval fallback behavior (no LLM call when context is empty) is covered by unit tests in `tests/api/test_chat.py`, not by this eval set — Qdrant semantic search always returns top-k hits when the collection is non-empty.

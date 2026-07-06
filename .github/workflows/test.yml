@@ -29,7 +29,7 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Run unit tests
-        run: uv run pytest -v -m "not retrieval"
+        run: uv run pytest -v -m "not retrieval and not generation"
 
   retrieval-test:
     runs-on: ubuntu-latest
@@ -74,10 +74,10 @@ jobs:
           echo "Qdrant did not become ready in time"
           exit 1
 
-      - name: Run retrieval golden-set tests
+      - name: Run retrieval and generation eval tests
         env:
           QDRANT_URL: http://localhost:6333
           QDRANT_COLLECTION_NAME: JOBS_ON_THE_HUB
           QDRANT_DEV_COLLECTION_NAME: JOBS_DEV
           EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
-        run: uv run pytest -v -m retrieval
+        run: uv run pytest -v -m "retrieval or generation"

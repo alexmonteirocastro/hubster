@@ -69,14 +69,15 @@ services:
     build:
       context: .
       target: test
+    image: hubster-test
     profiles:
       - test
-    command: ["pytest", "-v", "-m", "not retrieval"]
-
+    command: ["pytest", "-v", "-m", "not retrieval and not generation"]
   test-retrieval:
     build:
       context: .
       target: test
+    image: hubster-test
     profiles:
       - test
     env_file:
@@ -86,7 +87,6 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
-    command: ["pytest", "-v", "-m", "retrieval"]
-
+    command: ["pytest", "-v", "-m", "retrieval or generation"]
 volumes:
   qdrant_data:
