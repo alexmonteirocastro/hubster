@@ -7,7 +7,7 @@ from api.schemas import ChatRequest, ChatResponse, ChatSource, JobSearchHit, Job
 from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
 from llm_client.base import Generator
-from llm_client.context import format_job_context, has_sufficient_retrieval
+from llm_client.context import filter_usable_points, format_job_context
 from llm_client.exceptions import (
     GenerationConfigurationError,
     GenerationRateLimitError,
@@ -138,8 +138,9 @@ def chat(
         ) from exc
 
     points = [point for point in search_results.points if point.payload is not None]
+    usable_points = filter_usable_points(points)
 
-    if not has_sufficient_retrieval(points):
+    if not usable_points:
         return ChatResponse(
             question=request.question,
             answer=NO_MATCHING_JOBS_MESSAGE,
@@ -147,8 +148,8 @@ def chat(
             generated=False,
         )
 
-    sources = [_payload_to_source(point.score, point.payload) for point in points]
-    context = format_job_context([point.payload for point in points])
+    sources = [_payload_to_source(point.score, point.payload) for point in usable_points]
+    context = format_job_context([point.payload for point in usable_points])
 
     try:
         answer = generator.generate(context=context, question=request.question)

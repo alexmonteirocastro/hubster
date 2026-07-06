@@ -30,15 +30,19 @@ def format_job_context(payloads: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def has_sufficient_retrieval(points) -> bool:
-    if not points:
-        return False
+def _payload_has_document_text(payload: dict) -> bool:
+    document_text = payload.get("document_text", "")
+    return isinstance(document_text, str) and bool(document_text.strip())
 
-    for point in points:
-        payload = point.payload
-        if payload is None:
-            continue
-        document_text = payload.get("document_text", "")
-        if isinstance(document_text, str) and document_text.strip():
-            return True
-    return False
+
+def filter_usable_points(points) -> list:
+    """Return retrieval hits that have non-empty document_text for generation."""
+    return [
+        point
+        for point in points
+        if point.payload is not None and _payload_has_document_text(point.payload)
+    ]
+
+
+def has_sufficient_retrieval(points) -> bool:
+    return bool(filter_usable_points(points))

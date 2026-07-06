@@ -47,7 +47,8 @@ class GeminiGenerator(Generator):
         self._settings = settings
         self._client = client or genai.Client(
             api_key=settings.gemini_api_key,
-            http_options={"timeout": settings.timeout_seconds * 1000},
+            # google-genai HttpOptions.timeout is in milliseconds (see genai.types.HttpOptions).
+            http_options={"timeout": int(settings.timeout_seconds * 1000)},
         )
 
     def generate(self, context: str, question: str) -> str:

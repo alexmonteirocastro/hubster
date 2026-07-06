@@ -5,6 +5,7 @@ from llm_client.base import Generator
 from llm_client.context import (
     NO_MATCHING_JOBS_MESSAGE,
     build_generation_prompt,
+    filter_usable_points,
     format_job_context,
     has_sufficient_retrieval,
 )
@@ -53,6 +54,19 @@ def test_format_job_context_skips_empty_document_text():
     assert "job-1" in context
     assert "Backend role in Copenhagen" in context
     assert "job-2" not in context
+
+
+def test_filter_usable_points_excludes_empty_document_text():
+    points = [
+        type("Point", (), {"payload": {"job_url_identifier": "job-1", "document_text": "Backend role"}})(),
+        type("Point", (), {"payload": {"job_url_identifier": "job-2", "document_text": ""}})(),
+        type("Point", (), {"payload": None})(),
+    ]
+
+    usable = filter_usable_points(points)
+
+    assert len(usable) == 1
+    assert usable[0].payload["job_url_identifier"] == "job-1"
 
 
 def test_has_sufficient_retrieval_requires_non_empty_document_text():

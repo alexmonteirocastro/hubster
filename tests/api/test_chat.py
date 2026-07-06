@@ -94,6 +94,54 @@ def test_chat_returns_grounded_answer_via_injected_generator(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
+def test_chat_sources_match_context_passed_to_generator(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.9,
+                payload={
+                    "job_url_identifier": "job-with-text",
+                    "job_role": "Backend Developer",
+                    "Country": "Denmark",
+                    "location": "Copenhagen",
+                    "document_text": "Job Title: Backend Developer\nCompany: Acme",
+                },
+            ),
+            SimpleNamespace(
+                score=0.85,
+                payload={
+                    "job_url_identifier": "job-without-text",
+                    "job_role": "N/A",
+                    "document_text": "",
+                },
+            ),
+        ]
+    )
+
+    response = client.post("/chat", json={"question": "backend roles?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is True
+    assert len(body["sources"]) == 1
+    assert body["sources"][0]["job_id"] == "job-with-text"
+    assert "job-without-text" not in body["sources"][0]["job_id"]
+    context, _question = fake_generator.calls[0]
+    assert "job-with-text" in context
+    assert "job-without-text" not in context
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
 def test_chat_skips_generation_when_retrieval_is_empty(
     mock_get_settings,
     mock_get_qdrant_client,
