@@ -45,6 +45,11 @@ cp .env.example .env
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
 | `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
+| `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when using `/chat`) | *(set in `.env`)* |
+| `GEMINI_MODEL` | Generation model name (optional) | `gemini-2.5-flash` |
+| `GEMINI_MAX_RETRIES` | Retries for transient Gemini API failures (optional) | `3` |
+| `GEMINI_BACKOFF_FACTOR` | Exponential backoff base between Gemini retries (optional) | `1.0` |
+| `GEMINI_TIMEOUT` | Per-request timeout in seconds for Gemini (optional) | `30.0` |
 | `HUB_CLIENT_MAX_RETRIES` | Retries for transient Hub API failures (optional) | `3` |
 | `HUB_CLIENT_BACKOFF_FACTOR` | Exponential backoff base between retries (optional) | `1.0` |
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
@@ -154,6 +159,7 @@ The FastAPI service exposes a stable JSON contract for any frontend or client. I
 |----------|-------------|
 | `GET /jobs/stats?country={code}` | Job totals and role breakdown for a country (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) |
 | `GET /jobs/search?q={query}&limit={n}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`) |
+| `POST /chat` | Single-turn RAG chat: retrieve jobs from Qdrant, then generate a grounded answer via the `Generator` interface (Gemini 2.5 Flash by default). See [ADR-0001](docs/adr/0001-llm-provider-strategy.md). |
 
 Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when the `api` service is running.
 
@@ -163,7 +169,7 @@ Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when 
 uv run uvicorn api.main:app --reload --port 8000
 ```
 
-Requires `.env` with Qdrant settings and a running Qdrant instance (see above). Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests.
+Requires `.env` with Qdrant settings and a running Qdrant instance (see above). Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` additionally requires `GEMINI_API_KEY` and uses the provider-agnostic `llm_client` package described in [ADR-0001](docs/adr/0001-llm-provider-strategy.md).
 
 > Any future frontend should call this API rather than Qdrant or The Hub directly.
 
@@ -174,8 +180,12 @@ hubster/
 ├── main.py                      # Sync/seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
 ├── api/
-│   ├── main.py                  # FastAPI app (jobs stats + semantic search)
-│   └── schemas.py               # API response models
+│   ├── main.py                  # FastAPI app (jobs stats, semantic search, /chat)
+│   └── schemas.py               # API request/response models
+├── llm_client/
+│   ├── base.py                  # Generator interface
+│   ├── gemini.py                # Gemini 2.5 Flash implementation
+│   └── settings.py              # LLM settings (pydantic-settings)
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
 ├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
 ├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
@@ -263,12 +273,13 @@ During ingestion, a job that still fails after bounded retries is skipped; the o
 
 ## Testing
 
-Hubster has two test layers:
+Hubster has three test layers:
 
 - **Unit tests** — mock The Hub API responses and verify parsing logic. No network or Qdrant required.
 - **Retrieval golden-set tests** — evaluate semantic search quality against a fixed query set in the dev Qdrant collection (`JOBS_DEV`). See [tests/README.md](tests/README.md).
+- **Generation eval tests** — evaluate `/chat` wiring (retrieval → context → `Generator`) against the same dev collection with a scripted generator. No live Gemini calls. See [tests/README.md](tests/README.md).
 
-The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI runs unit tests (`-m "not retrieval"`) and retrieval golden-set tests (against a Qdrant service container) in parallel jobs. Local runs use `uv sync --frozen --group dev` directly on the runner for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
+The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml). CI runs unit tests (`-m "not retrieval and not generation"`) and retrieval/generation eval tests (against a Qdrant service container) in parallel jobs. Local runs use `uv sync --frozen --group dev` directly on the runner for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
 
 ### Run unit tests
 
@@ -276,7 +287,7 @@ The unit test suite runs automatically on every push to `main` and on every pull
 
 ```bash
 uv sync --group dev
-uv run pytest -m "not retrieval"
+uv run pytest -m "not retrieval and not generation"
 ```
 
 Verbose output:
@@ -291,7 +302,7 @@ uv run pytest -v
 docker compose --profile test run --rm test
 ```
 
-After changing dependencies in `pyproject.toml` / `uv.lock`, rebuild the test image first:
+After changing dependencies in `pyproject.toml` / `uv.lock`, rebuild the shared test image (used by both `test` and `test-retrieval`):
 
 ```bash
 docker compose --profile test build test
@@ -299,11 +310,13 @@ docker compose --profile test build test
 
 The test containers bind-mount source packages (`tests/`, `the_hub_client/`, `api/`, `db/`) but use the Linux virtualenv baked into the image — not your host `.venv`. This avoids stale cached volumes when dependencies change.
 
-Retrieval golden-set tests (require Qdrant — see [tests/README.md](tests/README.md)):
+Retrieval golden-set and generation eval tests (require Qdrant — see [tests/README.md](tests/README.md)):
 
 ```bash
 docker compose --profile test run --rm test-retrieval
 ```
+
+This runs both `@pytest.mark.retrieval` and `@pytest.mark.generation` tests.
 
 This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, edits under the mounted source packages apply without rebuilding the image (rebuild only when dependencies change).
 
@@ -311,9 +324,10 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 
 ## Roadmap / known limitations
 
-- [ ] Wire Streamlit chat to Qdrant semantic search (RAG)
+- [ ] Wire Streamlit chat to `/chat` RAG endpoint
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
 - [x] FastAPI backend for job stats and semantic search
+- [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](docs/adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [x] Rate limiting and retry logic for API calls
