@@ -5,6 +5,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 from api.schemas import ChatRequest, ChatResponse, ChatSource, JobSearchHit, JobSearchResponse
 from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
+from db.query_filters import resolve_chat_filters
 from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
 from llm_client.base import Generator
 from llm_client.context import filter_usable_points, format_job_context
@@ -65,6 +66,10 @@ def jobs_search(
         default=None,
         description="Optional country filter (DK, SE, NO, FI, IS, EU)",
     ),
+    remote: bool | None = Query(
+        default=None,
+        description="Optional remote-work filter (true = remote only, false = on-site only)",
+    ),
 ) -> JobSearchResponse:
     try:
         settings = get_settings()
@@ -75,6 +80,7 @@ def jobs_search(
             query_text=q,
             limit=limit,
             country=country,
+            remote=remote,
         )
     except ValidationError as exc:
         raise HTTPException(
@@ -125,12 +131,18 @@ def chat(
     try:
         settings = get_settings()
         client = get_qdrant_client()
+        filters = resolve_chat_filters(
+            request.question,
+            explicit_country=request.country,
+            explicit_remote=request.remote,
+        )
         search_results = query_jobs_in_qdrant(
             db_client=client,
             collection_name=settings.qdrant_collection_name,
             query_text=request.question,
             limit=request.limit,
-            country=request.country,
+            country=filters.country,
+            remote=filters.remote,
         )
     except ValidationError as exc:
         raise HTTPException(
