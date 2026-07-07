@@ -32,12 +32,15 @@ def extract_title_company_from_document_text(document_text: str) -> tuple[str, s
 def backfill_job_title_company_metadata(
     db_client: QdrantClient,
     collection_name: str,
-) -> None:
+) -> tuple[int, int, int]:
     """One-time migration: add job_title/company payload fields to already-indexed points.
 
     Idempotent — safe to re-run after an interrupted run. Skips points that already
     have both fields. Connection errors during the Hub API fallback abort the run
     but leave already-flushed batches in place; re-run to continue.
+
+    Returns:
+        (parsed_count, fallback_count, skipped_count) for programmatic checks.
     """
     parsed_count = 0
     fallback_count = 0
@@ -128,3 +131,4 @@ def backfill_job_title_company_metadata(
         fallback_count,
         skipped_count,
     )
+    return parsed_count, fallback_count, skipped_count

@@ -33,6 +33,7 @@ _REQUIRED_HIT_PAYLOAD_FIELDS = {
     "equity": "Equity",
 }
 
+# Not guaranteed present until the ALE-81 backfill runs — see ADR-0003.
 _OPTIONAL_HIT_PAYLOAD_FIELDS = {
     "job_title": "job_title",
     "company": "company",

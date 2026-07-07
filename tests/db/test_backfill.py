@@ -61,7 +61,7 @@ def test_backfill_parses_document_text_without_hub_fetch(mock_scrape):
         None,
     )
 
-    backfill_job_title_company_metadata(db_client, "JOBS_DEV")
+    parsed, fallback, skipped = backfill_job_title_company_metadata(db_client, "JOBS_DEV")
 
     mock_scrape.assert_not_called()
     db_client.batch_update_points.assert_called_once()
@@ -73,6 +73,7 @@ def test_backfill_parses_document_text_without_hub_fetch(mock_scrape):
             points=["point-1"],
         )
     )
+    assert (parsed, fallback, skipped) == (1, 0, 0)
 
 
 @patch("db.backfill.scrape_job_offer_by_id")
