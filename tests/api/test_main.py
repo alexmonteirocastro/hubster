@@ -56,6 +56,35 @@ def test_jobs_search_rejects_empty_query():
     assert response.status_code == 422
 
 
+def test_jobs_search_rejects_invalid_country():
+    response = client.get("/jobs/search", params={"q": "python developer", "country": "XX"})
+
+    assert response.status_code == 422
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_jobs_search_passes_country_filter_to_query(
+    mock_get_settings, mock_get_qdrant_client, mock_query_jobs
+):
+    mock_get_settings.return_value = SimpleNamespace(
+        qdrant_collection_name="JOBS_ON_THE_HUB"
+    )
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+    response = client.get(
+        "/jobs/search",
+        params={"q": "python developer", "country": "DK"},
+    )
+
+    assert response.status_code == 200
+    mock_query_jobs.assert_called_once()
+    _, kwargs = mock_query_jobs.call_args
+    assert kwargs["country"] == "Denmark"
+
+
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")

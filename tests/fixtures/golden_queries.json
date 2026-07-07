@@ -15,6 +15,18 @@
       "id": "analyst-numbers",
       "query": "analyst crunching numbers",
       "expected_job_ids": ["ghi789"]
+    },
+    {
+      "id": "backend-python-denmark-filtered",
+      "query": "backend python developer building APIs",
+      "country": "DK",
+      "expected_job_ids": ["abc123"]
+    },
+    {
+      "id": "frontend-sweden-filtered",
+      "query": "frontend developer roles",
+      "country": "SE",
+      "expected_job_ids": ["jkl012"]
     }
   ]
 }

@@ -18,6 +18,12 @@ def create_collection(db_client: QdrantClient, collection_name: str):
             collection_name=collection_name,
             vectors_config=db_client.get_fastembed_vector_params(),
         )
+        for field_name in ("Country", "Remote"):
+            db_client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
 
 
 def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
@@ -118,15 +124,28 @@ def query_jobs_in_qdrant(
     query_text: str,
     *,
     limit: int = 5,
+    country: str | None = None,
 ):
     embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
+
+    query_filter = None
+    if country is not None:
+        query_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="Country",
+                    match=models.MatchValue(value=country),
+                )
+            ]
+        )
 
     search_results = db_client.query_points(
         collection_name=collection_name,
         query=models.Document(text=query_text, model=embedding_model),
         using=vector_name,
         limit=limit,
+        query_filter=query_filter,
     )
 
     return search_results
