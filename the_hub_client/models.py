@@ -22,7 +22,7 @@ COUNTRY_CODE_TO_HUB_COUNTRY_NAME: dict[CountryCode, str] = {
     CountryCode.ICELAND: "Iceland",
     # EU is a Hub listing meta-code (countryCode=EU), not a per-job location.country
     # value — verify against a live Hub payload before relying on this filter.
-    # TODO: confirm whether any job's location.country is literally "Europe".
+    # TODO(ALE-82): confirm whether any job's location.country is literally "Europe".
     CountryCode.EUROPE: "Europe",
 }
 

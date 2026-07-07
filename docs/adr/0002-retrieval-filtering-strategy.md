@@ -73,6 +73,7 @@ They differ on every axis that matters for how carefully each should be designed
 - If the ALE-78 alias table's real-world miss rate (queries with an obvious location/remote intent that aren't caught) turns out to be high enough to matter, revisit LLM-based extraction (Option B, rejected above) — with its own cost/latency/determinism tradeoff re-evaluated against real data at that time, not assumed.
 - If evidence emerges that keyword/tech-stack precision (as distinct from the country-matching problem this ADR addresses) is a real, separate retrieval-quality issue, evaluate a sparse/BM25 vector addition as its own ADR — do not retroactively fold it into this one, since it requires a full reindex and is a materially bigger decision.
 - If additional structured filters beyond `Country`/`Remote` become clearly motivated by real usage (e.g. salary range, seniority), extend Decision 1's mechanism rather than building a parallel one.
+- If `CountryCode.EUROPE` (`EU`) does not map to a real per-job `location.country` value in Hub's API (see ALE-82), revisit whether EU filtering should be supported, removed, or implemented differently — silent zero-result behavior is indistinguishable from "no jobs found."
 
 ## Alternatives considered and rejected (for now)
 
