@@ -13,6 +13,7 @@ Use it to build job-discovery tools, RAG chatbots, or analytics over Nordic/Euro
 - **Vector storage** — embeds job title, company info, and descriptions into Qdrant
 - **Semantic search** — query jobs by natural language (e.g. "Python developer in Denmark")
 - **Optional CSV export** — dump scraped jobs to `tmp/jobs_preview.csv`
+- **REST API** — semantic search (`/jobs/search`), country job totals and role breakdown (`/jobs/stats`), and RAG chat (`/chat`); interactive docs at `/docs`
 - **React chat UI** — ask natural-language questions about jobs via `POST /chat`
 
 ## How it works
