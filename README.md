@@ -70,6 +70,7 @@ This starts:
 - **qdrant** — vector database on `localhost:6333` (persisted volume)
 - **app** — Streamlit dashboard on [localhost:8501](http://localhost:8501)
 - **api** — FastAPI backend on [localhost:8000](http://localhost:8000) ([Swagger UI](http://localhost:8000/docs))
+- **frontend** — React chat UI on [localhost:5173](http://localhost:5173)
 
 ### 3. Run ingestion
 
@@ -183,7 +184,37 @@ Requires `.env` with Qdrant settings and a running Qdrant instance (see above). 
 
 **CORS:** Browser clients (e.g. a Vite dev server on port 5173) must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated). The default allows `http://localhost:5173`. Override in `.env` when the frontend runs on a different origin.
 
-> Any frontend should call this API rather than Qdrant or The Hub directly. The planned React chat UI (ALE-74) is scoped in [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md); its visual language (colors, spacing, type, radii) is defined in [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md). Design tokens live in `frontend/src/styles/tokens.css` as CSS custom properties — components reference tokens by name, never hardcoded hex or px values.
+> Any frontend should call this API rather than Qdrant or The Hub directly. The React chat UI is scoped in [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md); its visual language (colors, spacing, type, radii) is defined in [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md). Design tokens live in `frontend/src/styles/tokens.css` as CSS custom properties — components reference tokens by name, never hardcoded hex or px values.
+
+## Frontend (React chat UI)
+
+A minimal React + Vite + TypeScript app in `frontend/` that calls `POST /chat` through a typed API client (`frontend/src/api/client.ts`). Each question is sent independently — conversation history is display-only and never sent to the API (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md)).
+
+### Run locally (without Docker)
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). The API must be running separately (`uv run uvicorn api.main:app --reload --port 8000`) with Qdrant and `GEMINI_API_KEY` configured.
+
+`VITE_API_BASE_URL` defaults to `http://localhost:8000` — the browser-reachable URL, not a Docker-internal hostname.
+
+### Run via Docker Compose
+
+The `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=http://localhost:8000` so the browser (on the host) can reach the published API port.
+
+### Frontend tests
+
+```bash
+cd frontend
+npm test
+```
+
+Component tests (Vitest + React Testing Library) cover message rendering, loading state, network/HTTP error handling, and the `generated: false` no-match case. They run in CI via the `frontend-test` job in `.github/workflows/test.yml`.
 
 ## Project structure
 
@@ -191,6 +222,13 @@ Requires `.env` with Qdrant settings and a running Qdrant instance (see above). 
 hubster/
 ├── main.py                      # Sync/seed Qdrant, test search
 ├── streamlit_app.py             # Simple dashboard / demo UI
+├── frontend/                    # React + Vite chat UI (POST /chat)
+│   ├── src/
+│   │   ├── api/                 # Typed API client and request/response types
+│   │   ├── components/          # Chat view, messages, sources, input
+│   │   └── styles/              # Design tokens (tokens.css) and global styles
+│   ├── Dockerfile
+│   └── package.json
 ├── api/
 │   ├── main.py                  # FastAPI app (jobs stats, semantic search, /chat)
 │   └── schemas.py               # API request/response models
@@ -341,7 +379,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 
 ## Roadmap / known limitations
 
-- [ ] React frontend for `/chat` demo (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md) and [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md); tracked in ALE-74)
+- [x] React frontend for `/chat` demo (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md) and [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md); tracked in ALE-74)
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](docs/adr/0001-llm-provider-strategy.md))
