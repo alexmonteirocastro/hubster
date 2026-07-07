@@ -5,11 +5,8 @@ import { ChatMessage, type DisplayMessage } from "./ChatMessage";
 import { LoadingIndicator } from "./LoadingIndicator";
 import styles from "./Chat.module.css";
 
-let messageCounter = 0;
-
 function nextMessageId(): string {
-  messageCounter += 1;
-  return `msg-${messageCounter}`;
+  return crypto.randomUUID();
 }
 
 export function Chat() {

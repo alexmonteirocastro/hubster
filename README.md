@@ -205,7 +205,7 @@ Open [http://localhost:5173](http://localhost:5173). The API must be running sep
 
 ### Run via Docker Compose
 
-The `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=http://localhost:8000` so the browser (on the host) can reach the published API port.
+The `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL` (default `http://localhost:8000` via `.env` or Compose) so the browser (on the host) can reach the published API port.
 
 ### Frontend tests
 

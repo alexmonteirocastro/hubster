@@ -58,6 +58,25 @@ const noMatchResponse: ChatResponse = {
   sources: [],
 };
 
+const declinedWithSourcesResponse: ChatResponse = {
+  question: "frontend roles in Sweden",
+  answer:
+    "I cannot find matching frontend roles in Sweden based on the listings provided.",
+  generated: false,
+  sources: [
+    {
+      score: 0.42,
+      job_id: "job-wrong",
+      job_role: "Backend Developer",
+      job_title: "Backend Developer",
+      company: "Wrong Co",
+      country: "Denmark",
+      location: "Copenhagen",
+      document_text: "Backend role in Denmark",
+    },
+  ],
+};
+
 describe("Chat", () => {
   beforeEach(() => {
     mockPostChat.mockReset();
@@ -171,5 +190,26 @@ describe("Chat", () => {
       screen.getByText(/no matching jobs — answer from search, not generated/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/retrieved sources/i)).not.toBeInTheDocument();
+  });
+
+  it("renders sources when generated is false without suppressing them (ADR-0004 Decision 4)", async () => {
+    mockPostChat.mockResolvedValue(declinedWithSourcesResponse);
+    const user = userEvent.setup();
+
+    render(<Chat />);
+
+    await user.type(
+      screen.getByLabelText(/ask a question about jobs/i),
+      "frontend roles in Sweden",
+    );
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+
+    expect(await screen.findByText(declinedWithSourcesResponse.answer)).toBeInTheDocument();
+    expect(screen.getByText(/retrieved sources/i)).toBeInTheDocument();
+    expect(screen.getByText(/backend developer/i)).toBeInTheDocument();
+    expect(screen.getByText(/score 0\.42/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no matching jobs — answer from search, not generated/i),
+    ).toBeInTheDocument();
   });
 });
