@@ -183,7 +183,7 @@ Requires `.env` with Qdrant settings and a running Qdrant instance (see above). 
 
 **CORS:** Browser clients (e.g. a Vite dev server on port 5173) must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated). The default allows `http://localhost:5173`. Override in `.env` when the frontend runs on a different origin.
 
-> Any frontend should call this API rather than Qdrant or The Hub directly. The planned React chat UI (ALE-74) is scoped in [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md).
+> Any frontend should call this API rather than Qdrant or The Hub directly. The planned React chat UI (ALE-74) is scoped in [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md); its visual language (colors, spacing, type, radii) is defined in [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md). Design tokens live in `frontend/src/styles/tokens.css` as CSS custom properties — components reference tokens by name, never hardcoded hex or px values.
 
 ## Project structure
 
@@ -341,7 +341,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 
 ## Roadmap / known limitations
 
-- [ ] React frontend for `/chat` demo (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md); tracked in ALE-74)
+- [ ] React frontend for `/chat` demo (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md) and [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md); tracked in ALE-74)
 - [x] Dockerize the full stack (Qdrant + app + ingestion)
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](docs/adr/0001-llm-provider-strategy.md))

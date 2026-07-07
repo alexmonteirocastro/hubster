@@ -2,7 +2,7 @@
 
 * **Status:** Proposed
 * **Date:** 2026-07-07
-* **Related:** ALE-74 (implementation), ALE-69 (FastAPI contract), ALE-76 (`/chat` + `Generator` layer), ADR-0001 Decision 3 & 4 (anti-hallucination guardrail, statelessness), ADR-0002 (retrieval filtering, accepted risks), ALE-84 (applied-filter visibility on `ChatResponse`)
+* **Related:** ALE-74 (implementation), ALE-69 (FastAPI contract), ALE-76 (`/chat` + `Generator` layer), ADR-0001 Decision 3 & 4 (anti-hallucination guardrail, statelessness), ADR-0002 (retrieval filtering, accepted risks), ADR-0005 (visual design tokens), ALE-84 (applied-filter visibility on `ChatResponse`)
 
 ## Context
 
