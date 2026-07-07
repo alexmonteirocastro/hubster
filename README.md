@@ -89,8 +89,11 @@ docker compose --profile ingestion run --rm ingestion --seed
 |------|---------|-------------|
 | **Sync** (default) | `python main.py` | Scheduled runs — diffs live listings vs Qdrant, fetches detail only for new jobs, deletes delisted ones |
 | **Seed** | `python main.py --seed` | First-time bootstrap of an empty collection |
+| **Backfill** | `python main.py --backfill` | One-time migration after deploying [ADR-0003](docs/adr/0003-structured-job-title-company-metadata.md): adds `job_title`/`company` payload fields to points ingested before that change. Idempotent — safe to re-run. Use `--backfill-dev` for `QDRANT_DEV_COLLECTION_NAME`. |
 
 Sync never drops the collection, so search stays available throughout. A second sync with no upstream changes makes zero detail fetches and zero Qdrant writes.
+
+> **Deploy note (ALE-81):** After upgrading to a build that promotes `job_title`/`company` to payload metadata, run `uv run python main.py --backfill` once against each production collection before relying on those fields in `/jobs/search` responses. New ingestions get the fields automatically; the backfill only updates already-indexed points.
 
 > **Limitation:** Sync does not detect in-place edits to an existing listing (same `job_id`, changed description). Only additions and removals are reconciled. Hash-based change detection may be added later.
 
@@ -140,6 +143,9 @@ uv run python main.py
 
 # Full bootstrap seed (first run only)
 uv run python main.py --seed
+
+# One-time backfill after deploying ALE-81 (adds job_title/company to existing points)
+uv run python main.py --backfill
 ```
 
 ### 5. Launch the Streamlit app

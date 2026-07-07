@@ -6,8 +6,8 @@ from the_hub_client.models import CountryCode
 class JobSearchHit(BaseModel):
     score: float
     job_id: str
-    job_title: str
-    company: str
+    job_title: str | None = None
+    company: str | None = None
     job_role: str
     country: str
     location: str

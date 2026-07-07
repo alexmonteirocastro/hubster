@@ -1,6 +1,6 @@
 # ADR-0003: Structured Job Title/Company Metadata
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Date:** 2026-07-07
 * **Related:** ADR-0002 (retrieval filtering strategy — same underlying pattern), ALE-81 (implementation)
 

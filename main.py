@@ -1,6 +1,7 @@
 import argparse
 
 from db import (
+    backfill_job_title_company_metadata,
     create_collection,
     get_qdrant_client,
     get_settings,
@@ -25,6 +26,24 @@ def main(mode: str = "sync"):
         )
         seed_dev_qdrant_db(client, settings.qdrant_dev_collection_name)
         collection_name = settings.qdrant_dev_collection_name
+    elif mode == "backfill":
+        print(
+            f"Backfilling job_title/company on '{settings.qdrant_collection_name}'..."
+        )
+        backfill_job_title_company_metadata(client, settings.qdrant_collection_name)
+        return
+    elif mode == "backfill-dev":
+        if settings.qdrant_dev_collection_name == settings.qdrant_collection_name:
+            raise ValueError(
+                "QDRANT_DEV_COLLECTION_NAME must differ from QDRANT_COLLECTION_NAME."
+            )
+        print(
+            f"Backfilling job_title/company on '{settings.qdrant_dev_collection_name}'..."
+        )
+        backfill_job_title_company_metadata(
+            client, settings.qdrant_dev_collection_name
+        )
+        return
     else:
         create_collection(client, settings.qdrant_collection_name)
         collection_name = settings.qdrant_collection_name
@@ -36,7 +55,10 @@ def main(mode: str = "sync"):
             print("Running incremental sync...")
             sync_qdrant_db(client, settings.qdrant_collection_name)
         else:
-            raise ValueError(f"Unknown mode: {mode}. Use 'sync', 'seed', or 'seed-dev'.")
+            raise ValueError(
+                f"Unknown mode: {mode}. Use 'sync', 'seed', 'seed-dev', "
+                "'backfill', or 'backfill-dev'."
+            )
 
     print("\n--- Testing Search ---")
 
@@ -62,15 +84,44 @@ def _run_main():
         action="store_true",
         help="Seed the dev retrieval collection with a small country sample.",
     )
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help=(
+            "One-time migration: add job_title/company payload fields to "
+            "already-indexed points. Required after deploying ALE-81."
+        ),
+    )
+    parser.add_argument(
+        "--backfill-dev",
+        action="store_true",
+        help="Same as --backfill, but targets QDRANT_DEV_COLLECTION_NAME.",
+    )
     args = parser.parse_args()
 
-    if args.seed and args.seed_dev:
-        parser.error("Use only one of --seed or --seed-dev.")
+    selected_modes = [
+        name
+        for name, enabled in (
+            ("seed", args.seed),
+            ("seed-dev", args.seed_dev),
+            ("backfill", args.backfill),
+            ("backfill-dev", args.backfill_dev),
+        )
+        if enabled
+    ]
+    if len(selected_modes) > 1:
+        parser.error(
+            "Use only one of --seed, --seed-dev, --backfill, or --backfill-dev."
+        )
 
     if args.seed_dev:
         mode = "seed-dev"
     elif args.seed:
         mode = "seed"
+    elif args.backfill_dev:
+        mode = "backfill-dev"
+    elif args.backfill:
+        mode = "backfill"
     else:
         mode = "sync"
 

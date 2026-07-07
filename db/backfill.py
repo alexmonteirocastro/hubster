@@ -33,6 +33,12 @@ def backfill_job_title_company_metadata(
     db_client: QdrantClient,
     collection_name: str,
 ) -> None:
+    """One-time migration: add job_title/company payload fields to already-indexed points.
+
+    Idempotent — safe to re-run after an interrupted run. Skips points that already
+    have both fields. Connection errors during the Hub API fallback abort the run
+    but leave already-flushed batches in place; re-run to continue.
+    """
     parsed_count = 0
     fallback_count = 0
     skipped_count = 0
@@ -49,7 +55,7 @@ def backfill_job_title_company_metadata(
         )
         pending_operations = []
 
-    def enqueue_update(point_id, job_title: str, company: str) -> None:
+    def enqueue_update(point_id: str | int, job_title: str, company: str) -> None:
         nonlocal pending_operations
         pending_operations.append(
             models.SetPayloadOperation(
@@ -104,6 +110,8 @@ def backfill_job_title_company_metadata(
                         skipped_count += 1
                         continue
                     raise
+                # ConnectionError/Timeout from hub_get abort here; already-flushed
+                # batches are persisted — re-run backfill to continue.
 
             enqueue_update(point.id, job_title, company)
 
@@ -113,7 +121,10 @@ def backfill_job_title_company_metadata(
 
     flush_batch()
 
-    print(
-        f"Backfill complete: {parsed_count} parsed from document_text, "
-        f"{fallback_count} fetched from Hub API, {skipped_count} skipped."
+    logger.info(
+        "Backfill complete: %d parsed from document_text, "
+        "%d fetched from Hub API, %d skipped.",
+        parsed_count,
+        fallback_count,
+        skipped_count,
     )
