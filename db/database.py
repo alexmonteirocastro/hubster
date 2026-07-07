@@ -130,23 +130,31 @@ def query_jobs_in_qdrant(
     *,
     limit: int = 5,
     country: CountryCode | None = None,
+    remote: bool | None = None,
 ):
     embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
 
-    query_filter = None
+    filter_conditions: list[models.FieldCondition] = []
     if country is not None:
         # Hub's location.country string is stored verbatim in the Qdrant Country field.
-        query_filter = models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="Country",
-                    match=models.MatchValue(
-                        value=country_code_to_hub_country_name(country)
-                    ),
-                )
-            ]
+        filter_conditions.append(
+            models.FieldCondition(
+                key="Country",
+                match=models.MatchValue(
+                    value=country_code_to_hub_country_name(country)
+                ),
+            )
         )
+    if remote is not None:
+        filter_conditions.append(
+            models.FieldCondition(
+                key="Remote",
+                match=models.MatchValue(value=remote),
+            )
+        )
+
+    query_filter = models.Filter(must=filter_conditions) if filter_conditions else None
 
     search_results = db_client.query_points(
         collection_name=collection_name,

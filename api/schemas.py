@@ -32,6 +32,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Optional country filter (DK, SE, NO, FI, IS, EU)",
     )
+    remote: bool | None = Field(
+        default=None,
+        description="Optional remote-work filter (true = remote only, false = on-site only)",
+    )
 
 
 class ChatSource(BaseModel):

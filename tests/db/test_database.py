@@ -92,3 +92,68 @@ def test_query_jobs_in_qdrant_omits_filter_when_country_not_supplied(monkeypatch
 
     _, kwargs = db_client.query_points.call_args
     assert kwargs["query_filter"] is None
+
+
+def test_query_jobs_in_qdrant_passes_remote_filter_when_supplied(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+    )
+    db_client.query_points.return_value = SimpleNamespace(points=[])
+
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    query_jobs_in_qdrant(
+        db_client=db_client,
+        collection_name="JOBS_DEV",
+        query_text="backend developer",
+        remote=True,
+    )
+
+    _, kwargs = db_client.query_points.call_args
+    assert kwargs["query_filter"] == models.Filter(
+        must=[
+            models.FieldCondition(
+                key="Remote",
+                match=models.MatchValue(value=True),
+            )
+        ]
+    )
+
+
+def test_query_jobs_in_qdrant_combines_country_and_remote_filters(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+    )
+    db_client.query_points.return_value = SimpleNamespace(points=[])
+
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    query_jobs_in_qdrant(
+        db_client=db_client,
+        collection_name="JOBS_DEV",
+        query_text="backend developer",
+        country=CountryCode.SWEDEN,
+        remote=True,
+    )
+
+    _, kwargs = db_client.query_points.call_args
+    assert kwargs["query_filter"] == models.Filter(
+        must=[
+            models.FieldCondition(
+                key="Country",
+                match=models.MatchValue(value="Sweden"),
+            ),
+            models.FieldCondition(
+                key="Remote",
+                match=models.MatchValue(value=True),
+            ),
+        ]
+    )

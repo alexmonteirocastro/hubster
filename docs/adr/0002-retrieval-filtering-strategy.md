@@ -53,6 +53,8 @@ They differ on every axis that matters for how carefully each should be designed
 
 **Precedence rule:** an explicitly supplied `ChatRequest.country`/`remote` always overrides anything derived from the question text. Inference must never silently override stated caller intent.
 
+**Implementation (ALE-78):** Option A shipped as `db/query_filters.py` — a dependency-free alias/keyword lookup (`extract_filters_from_question`) wired into `/chat` via `resolve_chat_filters`. Option B (LLM-based extraction) remains a revisit trigger only.
+
 ## Consequences
 
 **Positive:**
