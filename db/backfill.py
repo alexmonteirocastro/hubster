@@ -54,7 +54,7 @@ def backfill_job_title_company_metadata(
             return
         db_client.batch_update_points(
             collection_name=collection_name,
-            operations=pending_operations,
+            update_operations=pending_operations,
         )
         pending_operations = []
 

@@ -80,7 +80,10 @@ Ingestion is gated behind a Compose profile so it never runs accidentally on `do
 docker compose --profile ingestion run --rm ingestion
 
 # Full bootstrap seed (first run only)
-docker compose --profile ingestion run --rm ingestion --seed
+docker compose --profile ingestion run --rm ingestion python main.py --seed
+
+# One-time backfill after deploying ALE-81 (adds job_title/company to existing points)
+docker compose --profile ingestion run --rm ingestion python main.py --backfill
 ```
 
 **Sync vs seed**
@@ -89,7 +92,7 @@ docker compose --profile ingestion run --rm ingestion --seed
 |------|---------|-------------|
 | **Sync** (default) | `python main.py` | Scheduled runs — diffs live listings vs Qdrant, fetches detail only for new jobs, deletes delisted ones |
 | **Seed** | `python main.py --seed` | First-time bootstrap of an empty collection |
-| **Backfill** | `python main.py --backfill` | One-time migration after deploying [ADR-0003](docs/adr/0003-structured-job-title-company-metadata.md): adds `job_title`/`company` payload fields to points ingested before that change. Idempotent — safe to re-run. Use `--backfill-dev` for `QDRANT_DEV_COLLECTION_NAME`. |
+| **Backfill** | `python main.py --backfill` | One-time migration after deploying [ADR-0003](docs/adr/0003-structured-job-title-company-metadata.md): adds `job_title`/`company` payload fields to points ingested before that change. Idempotent — safe to re-run. Use `--backfill-dev` for `QDRANT_DEV_COLLECTION_NAME`. In Docker: `docker compose --profile ingestion run --rm ingestion python main.py --backfill`. |
 
 Sync never drops the collection, so search stays available throughout. A second sync with no upstream changes makes zero detail fetches and zero Qdrant writes.
 
