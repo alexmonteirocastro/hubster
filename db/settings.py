@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: str | list[str] | None) -> list[str]:
+        # Empty env var means unset — fall back to the local dev default.
+        # Whitespace-only values (e.g. "  ,  ") are treated as explicit garbage.
         if value is None or value == "":
             return list(_DEFAULT_CORS_ORIGINS)
         if isinstance(value, str):

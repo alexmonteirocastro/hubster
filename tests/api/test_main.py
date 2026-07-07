@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app, create_app
-from db.settings import get_settings
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
 
@@ -30,12 +29,14 @@ def test_cors_middleware_configured_from_settings(monkeypatch):
         "CORS_ALLOWED_ORIGINS",
         "http://example.com,http://other.com",
     )
-    get_settings.cache_clear()
 
     test_app = create_app()
     cors = next(m for m in test_app.user_middleware if m.cls is CORSMiddleware)
 
     assert cors.kwargs["allow_origins"] == ["http://example.com", "http://other.com"]
+    assert cors.kwargs["allow_credentials"] is False
+    assert cors.kwargs["allow_methods"] == ["GET", "POST", "OPTIONS"]
+    assert cors.kwargs["allow_headers"] == ["Content-Type", "Accept"]
 
 
 def test_cors_preflight_allows_configured_origin():

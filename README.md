@@ -55,7 +55,7 @@ cp .env.example .env
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
 | `HUB_CLIENT_TIMEOUT` | Per-request timeout in seconds (optional) | `30.0` |
 
-Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error at first use, not a silently empty string. The Qdrant client is constructed lazily via `get_qdrant_client()` on first real use, so importing `db` does not open a network connection.
+Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection.
 
 > In Docker Compose, `QDRANT_URL` is overridden to `http://qdrant:6333` so the app container reaches Qdrant by service name.
 
