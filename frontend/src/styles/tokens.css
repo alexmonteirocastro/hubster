@@ -1,0 +1,49 @@
+/*
+ * Design tokens for the Hubster chat UI — values per ADR-0005.
+ * Components reference these by name; no hardcoded hex or px elsewhere.
+ */
+:root {
+  /* Palette (ADR-0005 Decision 2) */
+  --color-ink: #1a2233;
+  --color-text-secondary: #5b6474;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f5f6f8;
+  --color-border: #e3e5ea;
+  --color-accent: #4338ca;
+  --color-accent-hover: #372dae;
+
+  /* Implementation extensions for error states (not in ADR-0005 palette) */
+  --color-error: #b42318;
+  --color-error-bg: #fef3f2;
+
+  /* Typography (ADR-0005 Decision 3) — Inter Variable self-hosted via
+     @fontsource-variable/inter in main.tsx (font-display: swap per @font-face). */
+  --font-family: "Inter Variable", "Helvetica Neue", Arial, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-xl: 1.5rem;
+  --font-weight-body: 400;
+  --font-weight-medium: 500;
+  --font-weight-heading: 700;
+  --line-height-tight: 1.3;
+  --line-height-normal: 1.55;
+
+  /* Spacing (ADR-0005 Decision 4 — 4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius & shadow (ADR-0005 Decision 4) */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  /* Layout */
+  --max-width-chat: 48rem;
+}

@@ -61,9 +61,21 @@ What *is* still open, confirmed by reading `db/query_filters.py` and ADR-0002's 
 - This is the mirror image of the lesson already recorded for the backend (Dockerization, ALE-66): containers reach each other by service name, but the *browser* — which is what actually executes the frontend's `fetch` calls, not the frontend container — runs on the host and must reach the API via a host-published port (`localhost:8000`), not the Docker-internal name (`http://api:8000`) the `api` container would use to reach `qdrant`. Getting this backwards is a common and confusing failure mode worth documenting explicitly rather than rediscovering by trial and error.
 - An env var (not a hardcoded constant) keeps local dev, Docker Compose, and any future deployment target configurable without a code change — same reasoning as the `Settings` pattern (ALE-72) already applied on the backend.
 
+## Decision 6: Retire Streamlit — React frontend and API/Swagger as the demo surface for now
+
+**Decision:** Remove `streamlit_app.py` and the Docker Compose `app` (Streamlit) service. The React chat UI (`frontend/`) is the user-facing demo. Job totals and role breakdowns remain available via `GET /jobs/stats` (interactive docs at `/docs`); no replacement dashboard UI ships with this retirement.
+
+**Rationale:**
+
+- Streamlit's chat tab was always a placeholder (fake streaming, hardcoded job ID, not wired to Qdrant). The React frontend (Decisions 1–5) is its deliberate replacement — that part of the decision was already settled in Decision 1.
+- Streamlit's Jobs tab showed live totals and role breakdown via `get_full_jobs_picture_by_country`. That *data path* is not lost: `GET /jobs/stats?country={code}` returns the same breakdown and is already tested (`tests/api/test_main.py`). What changes is the *UI* — after retirement, viewing that breakdown means calling the API (e.g. Swagger) rather than a country-picker page. For the current prototype stage, that is an accepted trade-off.
+- Removing Streamlit meaningfully shrinks the dependency tree (pandas, pyarrow, altair, tornado, etc.), Docker image size, and attack surface — a concrete win independent of the UI question.
+
+**Revisit condition:** Reintroduce Streamlit — or build a second React view with routing (revisiting Decision 1 / Next.js) — if a dedicated UI is needed for job-stats exploration or for internal human-eval tooling (e.g. side-by-side retrieval/generation review workflows). Neither is in scope for the current chat demo.
+
 ## Alternatives considered and rejected
 
-- **Next.js** — rejected for now; no SSR/routing/multi-page requirement exists yet. Revisit if the app grows a second real view (e.g. a stats dashboard beyond the existing Streamlit one) where routing has genuine value.
+- **Next.js** — rejected for now; no SSR/routing/multi-page requirement exists yet. Revisit if the app grows a second real view (e.g. a stats dashboard or human-eval tooling) where routing has genuine value.
 - **Continuing to build out Streamlit's chat tab** — rejected: harder to hold to the same typed-contract discipline as the rest of the codebase, and the README already frames it as a placeholder, not a target.
 - **Streaming (SSE) responses** — rejected for v1: no backend streaming source exists (`Generator.generate` returns a complete string), and single-turn answers over a handful of jobs are short enough that the UX cost of waiting is low. Revisit if `Generator` grows streaming support or answer latency becomes a real demo problem.
 - **A global state library (Redux/Zustand/Context)** — rejected: one view, one message list; `useState`/`useReducer` is sufficient. Revisit only if the app grows enough shared state across views to justify it.
@@ -82,10 +94,11 @@ What *is* still open, confirmed by reading `db/query_filters.py` and ADR-0002's 
 - No multi-turn memory: a real limitation for a "chat" demo, and one a viewer may notice. Mitigated only by clear UI copy, not solved here.
 - Sources may still appear alongside a correct "no match" answer until `ALE-84` ships and Decision 4 is revisited — an accepted, temporary rough edge for the demo, not a silent one.
 - No streaming means the UI shows a loading state for the full duration of retrieval + generation, not incremental output.
+- No dedicated UI for job stats breakdown: `GET /jobs/stats` remains available via the API/Swagger, but the former Streamlit Jobs tab is not reimplemented in React (see Decision 6).
 
 ## Revisit triggers
 
 - If `ALE-84` ships, revisit Decision 4 (source suppression/labeling by applied-filter status).
 - If `/chat` gains multi-turn/session support, revisit Decision 3.
 - If `Generator` gains streaming support, revisit Decision 2.
-- If a second real view is needed (dashboard, history, settings), revisit Decision 1 (routing/Next.js) and decide Streamlit's long-term fate explicitly rather than by default.
+- If a second real view is needed (stats dashboard, human-eval tooling, history, settings), revisit Decision 1 (routing/Next.js) and Decision 6 (whether to reintroduce Streamlit for internal tooling or build the view in React).
