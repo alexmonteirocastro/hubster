@@ -53,7 +53,7 @@ They differ on every axis that matters for how carefully each should be designed
 
 **Precedence rule:** an explicitly supplied `ChatRequest.country`/`remote` always overrides anything derived from the question text. Inference must never silently override stated caller intent.
 
-**Implementation (ALE-78):** Option A shipped as `db/query_filters.py` — a dependency-free alias/keyword lookup (`extract_filters_from_question`) wired into `/chat` via `resolve_chat_filters`. Option B (LLM-based extraction) remains a revisit trigger only. Extraction rules: remote negation phrases (e.g. "not remote", "on-site only") return `remote=False` before positive keyword matching; when multiple distinct countries appear in one question, no country filter is applied rather than picking the earliest match.
+**Implementation (ALE-78):** Option A shipped as `db/query_filters.py` — a dependency-free alias/keyword lookup (`extract_filters_from_question`) wired into `/chat` via `resolve_chat_filters`. Option B (LLM-based extraction) remains a revisit trigger only. The module lives under `db/` (not a top-level package) because it sits on the retrieval path between the API and `query_jobs_in_qdrant`, even though it has no Qdrant dependency. Extraction rules: remote negation uses a closed-set phrase list plus a deterministic negation-window check on the words preceding a remote keyword; when multiple distinct countries appear in one question, no country filter is applied rather than picking the earliest match.
 
 ## Consequences
 
@@ -67,6 +67,7 @@ They differ on every axis that matters for how carefully each should be designed
 **Negative / accepted risks:**
 
 - The alias/lookup table (ALE-78) is inherently incomplete — unusual phrasings ("Scandinavia", "the Nordics", misspellings) will not be caught and will silently fall back to unfiltered semantic search rather than erroring. This is an accepted, bounded gap: a missed filter degrades gracefully to today's (already-shipped) behavior, it doesn't produce a wrong answer.
+- Remote negation detection uses a fixed phrase list and a small negation-window heuristic (not general NLP) — phrasings outside that closed set (e.g. "I'd rather not do remote work") may still match as `remote=True`; see Revisit triggers if real-world miss rate matters.
 - Filtering only on `Country`/`Remote` for now; other potentially useful filters (salary range, seniority) are not addressed and aren't motivated by current evidence.
 - Keyword-precision issues within the embedded text (e.g. specific tech-stack terms) are *not* addressed by this ADR and may still exist — see Revisit triggers.
 

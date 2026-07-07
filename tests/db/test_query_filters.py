@@ -45,11 +45,29 @@ def test_extract_filters_from_question_returns_none_when_no_signals():
 
 
 def test_extract_filters_from_question_detects_remote_negation():
-    result = extract_filters_from_question(
-        "I don't want a remote job, must be on-site in Copenhagen"
-    )
+    result = extract_filters_from_question("I really don't want a remote position")
 
-    assert result == ExtractedFilters(country=CountryCode.DENMARK, remote=False)
+    assert result == ExtractedFilters(country=None, remote=False)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "I don't want a remote job, must be on-site in Copenhagen",
+        "Backend roles, but not a remote one please",
+        "Please, no remote roles for me",
+    ],
+)
+def test_extract_filters_from_question_detects_varied_remote_negation(question):
+    result = extract_filters_from_question(question)
+
+    assert result.remote is False
+
+
+def test_extract_filters_from_question_same_country_multiple_aliases_is_not_ambiguous():
+    result = extract_filters_from_question("Backend roles in Copenhagen, Denmark")
+
+    assert result == ExtractedFilters(country=CountryCode.DENMARK, remote=None)
 
 
 def test_extract_filters_from_question_skips_country_when_multiple_appear():

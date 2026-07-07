@@ -32,6 +32,8 @@ REMOTE_FALSE_PHRASES = (
     "non-remote",
     "non remote",
     "don't want remote",
+    "don't want a remote",
+    "not a remote",
     "on-site only",
     "on site only",
     "in-office",
@@ -53,10 +55,13 @@ REMOTE_WORDS = (
     "telecommute",
 )
 
+_NEGATION_CUES = frozenset({"not", "no", "never", "without", "don't", "won't", "can't"})
+
 _COUNTRY_PATTERNS: list[tuple[re.Pattern[str], CountryCode]] = [
     (re.compile(rf"\b{re.escape(term)}\b"), code) for term, code in COUNTRY_ALIASES
 ]
 _REMOTE_WORD_PATTERNS = [re.compile(rf"\b{re.escape(word)}\b") for word in REMOTE_WORDS]
+_TOKEN_PATTERN = re.compile(r"\b[\w']+\b")
 
 
 class ExtractedFilters(BaseModel):
@@ -84,6 +89,20 @@ def _find_country_match(question: str) -> CountryCode | None:
     return next(iter(earliest_by_code))
 
 
+def _has_negation_before(text: str, match_start: int) -> bool:
+    preceding = text[:match_start].rstrip()
+    if not preceding:
+        return False
+
+    tokens = _TOKEN_PATTERN.findall(preceding)
+    for token in tokens[-3:]:
+        normalized = token.lower()
+        if normalized in _NEGATION_CUES or normalized.endswith("n't"):
+            return True
+
+    return False
+
+
 def _detect_remote(question: str) -> bool | None:
     lowered = question.lower()
 
@@ -92,12 +111,14 @@ def _detect_remote(question: str) -> bool | None:
             return False
 
     for phrase in REMOTE_PHRASES:
-        if phrase in lowered:
-            return True
+        start = lowered.find(phrase)
+        if start != -1:
+            return False if _has_negation_before(lowered, start) else True
 
     for pattern in _REMOTE_WORD_PATTERNS:
-        if pattern.search(lowered):
-            return True
+        match = pattern.search(lowered)
+        if match is not None:
+            return False if _has_negation_before(lowered, match.start()) else True
 
     return None
 
