@@ -11,6 +11,7 @@ from api.main import app, get_chat_generator
 from llm_client.base import Generator
 from llm_client.context import NO_MATCHING_JOBS_MESSAGE
 from llm_client.exceptions import GenerationRateLimitError, GenerationUnavailableError
+from the_hub_client.models import CountryCode
 
 client = TestClient(app)
 
@@ -316,4 +317,4 @@ def test_chat_passes_country_filter_to_query(
     assert response.status_code == 200
     mock_query_jobs.assert_called_once()
     _, kwargs = mock_query_jobs.call_args
-    assert kwargs["country"] == "Denmark"
+    assert kwargs["country"] == CountryCode.DENMARK

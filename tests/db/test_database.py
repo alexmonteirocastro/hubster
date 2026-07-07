@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call
 from qdrant_client import models
 
 from db.database import create_collection, query_jobs_in_qdrant
+from the_hub_client.models import CountryCode
 
 
 def test_create_collection_creates_payload_indexes_for_country_and_remote():
@@ -24,7 +25,7 @@ def test_create_collection_creates_payload_indexes_for_country_and_remote():
             call(
                 collection_name="JOBS_DEV",
                 field_name="Remote",
-                field_schema=models.PayloadSchemaType.KEYWORD,
+                field_schema=models.PayloadSchemaType.BOOL,
             ),
         ]
     )
@@ -57,7 +58,7 @@ def test_query_jobs_in_qdrant_passes_country_filter_when_supplied(monkeypatch):
         collection_name="JOBS_DEV",
         query_text="backend developer",
         limit=3,
-        country="Denmark",
+        country=CountryCode.DENMARK,
     )
 
     _, kwargs = db_client.query_points.call_args

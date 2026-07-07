@@ -1,6 +1,6 @@
 # ADR-0002: Retrieval Filtering Strategy
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Date:** 2026-07-06
 * **Related:** ALE-76 (generation layer), ALE-77 (filter mechanism), ALE-78 (filter derivation), ADR-0001 (LLM provider strategy)
 
@@ -24,7 +24,7 @@ This ADR covers three related but distinct decisions: how to combine structured 
 
 ## Decision 2: Add payload indexes proactively, ahead of demonstrated need
 
-**Decision:** `create_collection` will create a payload index (`PayloadSchemaType.KEYWORD`) on `Country` and `Remote` at collection-creation time, not only when filtering performance becomes a measured problem.
+**Decision:** `create_collection` will create payload indexes at collection-creation time, not only when filtering performance becomes a measured problem: `PayloadSchemaType.KEYWORD` on `Country` (string) and `PayloadSchemaType.BOOL` on `Remote` (boolean).
 
 **Rationale:**
 

@@ -222,7 +222,7 @@ Job Description: …
 - `Salary Type`, `Salary`, `Equity`
 - `document_text` (full embedded string)
 
-`Country` and `Remote` are indexed as keyword payload fields at collection creation time so filtered semantic search stays efficient as the collection grows (see [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md)).
+`Country` and `Remote` are indexed as payload fields at collection creation time (`Country` as keyword, `Remote` as boolean) so filtered semantic search stays efficient as the collection grows (see [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md)). Indexes are only created when a collection is first created; existing collections deployed before this change need to be re-created or migrated manually to gain them.
 
 Point IDs are deterministic UUID5 values derived from the Hub job ID.
 
@@ -230,6 +230,7 @@ Point IDs are deterministic UUID5 values derived from the Hub job ID.
 
 ```python
 from db import create_collection, get_qdrant_client, get_settings, query_jobs_in_qdrant
+from the_hub_client import CountryCode
 
 settings = get_settings()
 client = get_qdrant_client()
@@ -240,7 +241,7 @@ results = query_jobs_in_qdrant(
     db_client=client,
     collection_name=settings.qdrant_collection_name,
     query_text="Looking for a Python developer in Denmark",
-    country="Denmark",
+    country=CountryCode.DENMARK,
 )
 
 for hit in results.points:

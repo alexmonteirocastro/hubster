@@ -33,12 +33,6 @@ _PAYLOAD_FIELDS = {
 }
 
 
-def _country_code_to_payload_name(country: CountryCode | None) -> str | None:
-    if country is None:
-        return None
-    return country.name.title()
-
-
 def _payload_to_hit(score: float, payload: dict) -> JobSearchHit:
     try:
         return JobSearchHit(
@@ -80,7 +74,7 @@ def jobs_search(
             collection_name=settings.qdrant_collection_name,
             query_text=q,
             limit=limit,
-            country=_country_code_to_payload_name(country),
+            country=country,
         )
     except ValidationError as exc:
         raise HTTPException(
@@ -136,7 +130,7 @@ def chat(
             collection_name=settings.qdrant_collection_name,
             query_text=request.question,
             limit=request.limit,
-            country=_country_code_to_payload_name(request.country),
+            country=request.country,
         )
     except ValidationError as exc:
         raise HTTPException(

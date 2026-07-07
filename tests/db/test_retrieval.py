@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from db.database import query_jobs_in_qdrant
-from the_hub_client.models import CountryCode
+from the_hub_client.models import CountryCode, country_code_to_payload_country
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -17,10 +17,6 @@ def _job_ids_from_hits(hits) -> list[str]:
     return [hit.payload["job_url_identifier"] for hit in hits]
 
 
-def _country_code_to_payload_name(country_code: str) -> str:
-    return CountryCode(country_code).name.title()
-
-
 @pytest.mark.retrieval
 def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
     client, collection_name = retrieval_qdrant
@@ -29,15 +25,16 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
 
     for case in golden_set["queries"]:
         country_filter = case.get("country")
+        country_code = CountryCode(country_filter) if country_filter else None
         country_name = (
-            _country_code_to_payload_name(country_filter) if country_filter else None
+            country_code_to_payload_country(country_code) if country_code else None
         )
         results = query_jobs_in_qdrant(
             db_client=client,
             collection_name=collection_name,
             query_text=case["query"],
             limit=top_k,
-            country=country_name,
+            country=country_code,
         )
         returned_job_ids = _job_ids_from_hits(results.points)
         missing = [

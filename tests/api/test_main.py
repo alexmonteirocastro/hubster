@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app
+from the_hub_client.models import CountryCode
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
 
 client = TestClient(app)
@@ -82,7 +83,7 @@ def test_jobs_search_passes_country_filter_to_query(
     assert response.status_code == 200
     mock_query_jobs.assert_called_once()
     _, kwargs = mock_query_jobs.call_args
-    assert kwargs["country"] == "Denmark"
+    assert kwargs["country"] == CountryCode.DENMARK
 
 
 @patch("api.main.query_jobs_in_qdrant")

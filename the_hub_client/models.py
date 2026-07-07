@@ -12,6 +12,23 @@ class CountryCode(str, Enum):
     EUROPE = "EU"
 
 
+# Maps API country codes to the exact `Country` strings stored in Qdrant payloads
+# (sourced from The Hub's `location.country` field on each job).
+COUNTRY_CODE_TO_PAYLOAD_COUNTRY: dict[CountryCode, str] = {
+    CountryCode.DENMARK: "Denmark",
+    CountryCode.SWEDEN: "Sweden",
+    CountryCode.NORWAY: "Norway",
+    CountryCode.FINLAND: "Finland",
+    CountryCode.ICELAND: "Iceland",
+    # EU is a Hub listing meta-code; individual job payloads use nation names above.
+    CountryCode.EUROPE: "Europe",
+}
+
+
+def country_code_to_payload_country(country: CountryCode) -> str:
+    return COUNTRY_CODE_TO_PAYLOAD_COUNTRY[country]
+
+
 class JobsAndPages(BaseModel):
     total_jobs: int
     number_of_pages: int
