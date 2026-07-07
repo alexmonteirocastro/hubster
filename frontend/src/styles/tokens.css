@@ -16,7 +16,7 @@
   --color-error: #b42318;
   --color-error-bg: #fef3f2;
 
-  /* Typography (ADR-0005 Decision 3) */
+  /* Typography (ADR-0005 Decision 3) — Inter self-hosted via @fontsource/inter in main.tsx */
   --font-family: Inter, "Helvetica Neue", Arial, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
