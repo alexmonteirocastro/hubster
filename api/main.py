@@ -24,6 +24,8 @@ app = FastAPI(
 
 _PAYLOAD_FIELDS = {
     "job_id": "job_url_identifier",
+    "job_title": "job_title",
+    "company": "company",
     "job_role": "job_role",
     "country": "Country",
     "location": "location",
@@ -113,6 +115,8 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
             job_id=payload["job_url_identifier"],
             job_role=payload["job_role"],
             document_text=payload.get("document_text", ""),
+            job_title=payload.get("job_title"),
+            company=payload.get("company"),
             country=payload.get("Country"),
             location=payload.get("location"),
         )

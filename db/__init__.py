@@ -1,3 +1,4 @@
+from db.backfill import backfill_job_title_company_metadata, extract_title_company_from_document_text
 from db.database import (
     clear_db,
     create_collection,
@@ -17,6 +18,8 @@ from db.db_utils import (
 from db.settings import get_qdrant_client, get_settings
 
 __all__ = [
+    "backfill_job_title_company_metadata",
+    "extract_title_company_from_document_text",
     "load_jobs_data_into_csv",
     "load_jobs_into_qdrant",
     "delete_jobs_from_qdrant",

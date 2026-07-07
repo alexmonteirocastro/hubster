@@ -51,6 +51,8 @@ def load_jobs_into_qdrant(
     jobs_metadata = [
         {
             "job_url_identifier": job.job_id,
+            "job_title": job.job_title,
+            "company": job.company,
             "job_role": job.job_role,
             "Country": job.country,
             "location": job.locality,

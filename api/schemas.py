@@ -6,6 +6,8 @@ from the_hub_client.models import CountryCode
 class JobSearchHit(BaseModel):
     score: float
     job_id: str
+    job_title: str
+    company: str
     job_role: str
     country: str
     location: str
@@ -43,6 +45,8 @@ class ChatSource(BaseModel):
     job_id: str
     job_role: str
     document_text: str
+    job_title: str | None = None
+    company: str | None = None
     country: str | None = None
     location: str | None = None
 

@@ -219,7 +219,7 @@ Job Description: …
 
 **Payload metadata**
 
-- `job_url_identifier`, `job_role`, `Country`, `location`, `Remote`
+- `job_url_identifier`, `job_title`, `company`, `job_role`, `Country`, `location`, `Remote`
 - `Salary Type`, `Salary`, `Equity`
 - `document_text` (full embedded string)
 

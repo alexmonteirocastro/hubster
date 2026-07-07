@@ -125,6 +125,8 @@ def test_jobs_search_returns_clean_json(
                 score=0.91,
                 payload={
                     "job_url_identifier": "job-123",
+                    "job_title": "Backend Developer",
+                    "company": "Acme",
                     "job_role": "Backend Developer",
                     "Country": "Denmark",
                     "location": "Copenhagen",
@@ -146,6 +148,8 @@ def test_jobs_search_returns_clean_json(
     assert body["results"][0] == {
         "score": 0.91,
         "job_id": "job-123",
+        "job_title": "Backend Developer",
+        "company": "Acme",
         "job_role": "Backend Developer",
         "country": "Denmark",
         "location": "Copenhagen",
@@ -196,6 +200,8 @@ def test_jobs_search_returns_502_when_payload_is_missing_fields(
                 score=0.91,
                 payload={
                     "job_url_identifier": "job-123",
+                    "job_title": "Backend Developer",
+                    "company": "Acme",
                     "job_role": "Backend Developer",
                     "Country": "Denmark",
                     "location": "Copenhagen",
