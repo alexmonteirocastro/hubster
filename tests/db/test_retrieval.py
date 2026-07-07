@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from db.database import query_jobs_in_qdrant
-from the_hub_client.models import CountryCode, country_code_to_payload_country
+from the_hub_client.models import CountryCode, country_code_to_hub_country_name
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -27,7 +27,7 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
         country_filter = case.get("country")
         country_code = CountryCode(country_filter) if country_filter else None
         country_name = (
-            country_code_to_payload_country(country_code) if country_code else None
+            country_code_to_hub_country_name(country_code) if country_code else None
         )
         results = query_jobs_in_qdrant(
             db_client=client,

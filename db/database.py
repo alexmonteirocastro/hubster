@@ -5,7 +5,7 @@ from qdrant_client import QdrantClient, models
 
 from db.settings import get_settings
 from the_hub_client import JobOpportunity
-from the_hub_client.models import CountryCode, country_code_to_payload_country
+from the_hub_client.models import CountryCode, country_code_to_hub_country_name
 
 
 def job_id_to_point_id(job_id: str) -> str:
@@ -136,12 +136,13 @@ def query_jobs_in_qdrant(
 
     query_filter = None
     if country is not None:
+        # Hub's location.country string is stored verbatim in the Qdrant Country field.
         query_filter = models.Filter(
             must=[
                 models.FieldCondition(
                     key="Country",
                     match=models.MatchValue(
-                        value=country_code_to_payload_country(country)
+                        value=country_code_to_hub_country_name(country)
                     ),
                 )
             ]
