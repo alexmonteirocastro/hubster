@@ -65,7 +65,7 @@ def test_backfill_parses_document_text_without_hub_fetch(mock_scrape):
 
     mock_scrape.assert_not_called()
     db_client.batch_update_points.assert_called_once()
-    operations = db_client.batch_update_points.call_args.kwargs["operations"]
+    operations = db_client.batch_update_points.call_args.kwargs["update_operations"]
     assert len(operations) == 1
     assert operations[0] == models.SetPayloadOperation(
         set_payload=models.SetPayload(
@@ -109,7 +109,7 @@ def test_backfill_falls_back_to_hub_on_malformed_document_text(mock_scrape):
     backfill_job_title_company_metadata(db_client, "JOBS_DEV")
 
     mock_scrape.assert_called_once_with("job-2")
-    operations = db_client.batch_update_points.call_args.kwargs["operations"]
+    operations = db_client.batch_update_points.call_args.kwargs["update_operations"]
     assert operations[0].set_payload.payload == {
         "job_title": "Product Manager",
         "company": "Beta Inc",
@@ -165,8 +165,8 @@ def test_backfill_batches_writes_at_ingest_batch_size(mock_scrape):
 
     mock_scrape.assert_not_called()
     assert db_client.batch_update_points.call_count == 2
-    first_batch = db_client.batch_update_points.call_args_list[0].kwargs["operations"]
-    second_batch = db_client.batch_update_points.call_args_list[1].kwargs["operations"]
+    first_batch = db_client.batch_update_points.call_args_list[0].kwargs["update_operations"]
+    second_batch = db_client.batch_update_points.call_args_list[1].kwargs["update_operations"]
     assert len(first_batch) == INGEST_BATCH_SIZE
     assert len(second_batch) == 1
     assert all(
