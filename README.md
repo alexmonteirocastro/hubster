@@ -13,7 +13,7 @@ Use it to build job-discovery tools, RAG chatbots, or analytics over Nordic/Euro
 - **Vector storage** — embeds job title, company info, and descriptions into Qdrant
 - **Semantic search** — query jobs by natural language (e.g. "Python developer in Denmark")
 - **Optional CSV export** — dump scraped jobs to `tmp/jobs_preview.csv`
-- **Streamlit dashboard** — explore job counts by role and country (chat UI is a work in progress)
+- **React chat UI** — ask natural-language questions about jobs via `POST /chat`
 
 ## How it works
 
@@ -68,7 +68,6 @@ docker compose up --build
 This starts:
 
 - **qdrant** — vector database on `localhost:6333` (persisted volume)
-- **app** — Streamlit dashboard on [localhost:8501](http://localhost:8501)
 - **api** — FastAPI backend on [localhost:8000](http://localhost:8000) ([Swagger UI](http://localhost:8000/docs))
 - **frontend** — React chat UI on [localhost:5173](http://localhost:5173)
 
@@ -152,14 +151,24 @@ uv run python main.py --seed
 uv run python main.py --backfill
 ```
 
-### 5. Launch the Streamlit app
+### 5. Run the API and frontend
+
+**API:**
 
 ```bash
-uv run streamlit run streamlit_app.py
+uv run uvicorn api.main:app --reload --port 8000
 ```
 
-- **Jobs tab** — live stats from The Hub API (totals and breakdown by role)
-- **Chat tab** — placeholder demo; not yet wired to Qdrant
+**Frontend** (in a second terminal):
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) for the chat UI. Job stats are available via `GET /jobs/stats` on the API ([Swagger UI](http://localhost:8000/docs)).
 
 ## REST API
 
@@ -221,7 +230,6 @@ Component tests (Vitest + React Testing Library) cover message rendering, loadin
 ```
 hubster/
 ├── main.py                      # Sync/seed Qdrant, test search
-├── streamlit_app.py             # Simple dashboard / demo UI
 ├── frontend/                    # React + Vite chat UI (POST /chat)
 │   ├── src/
 │   │   ├── api/                 # Typed API client and request/response types
@@ -237,7 +245,7 @@ hubster/
 │   ├── gemini.py                # Gemini 2.5 Flash implementation
 │   └── settings.py              # LLM settings (pydantic-settings)
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
-├── docker-compose.yml           # Qdrant + Streamlit app + ingestion/test profiles
+├── docker-compose.yml           # Qdrant + API + frontend + ingestion/test profiles
 ├── docker-compose.override.yml  # Dev bind mounts (auto-loaded)
 ├── the_hub_client/
 │   ├── models.py                # Pydantic models (JobOpportunity, CountryCode, …)
@@ -380,7 +388,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 ## Roadmap / known limitations
 
 - [x] React frontend for `/chat` demo (see [ADR-0004](docs/adr/0004-frontend-architecture-for-chat-interface.md) and [ADR-0005](docs/adr/0005-visual-design-tokens-for-the-chat-ui.md); tracked in ALE-74)
-- [x] Dockerize the full stack (Qdrant + app + ingestion)
+- [x] Dockerize the full stack (Qdrant + API + frontend + ingestion)
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](docs/adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)

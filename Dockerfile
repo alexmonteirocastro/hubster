@@ -37,14 +37,13 @@ RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --c
 COPY --from=builder --chown=app:app /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    HOME="/home/app" \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    HOME="/home/app"
 
 USER app
 
-EXPOSE 8501
+EXPOSE 8000
 
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM python:3.12-slim-bookworm AS test
 

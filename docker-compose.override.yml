@@ -2,11 +2,6 @@
 # Bind-mounts source so .py edits apply without rebuilding the image.
 # The anonymous /app/.venv volume keeps the image's virtualenv intact.
 services:
-  app:
-    volumes:
-      - .:/app
-      - /app/.venv
-
   api:
     volumes:
       - .:/app

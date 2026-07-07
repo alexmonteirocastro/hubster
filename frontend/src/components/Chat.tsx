@@ -1,13 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { ApiHttpError, ApiNetworkError, postChat } from "../api/client";
+import { createMessageId } from "../utils/id";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage, type DisplayMessage } from "./ChatMessage";
 import { LoadingIndicator } from "./LoadingIndicator";
 import styles from "./Chat.module.css";
-
-function nextMessageId(): string {
-  return crypto.randomUUID();
-}
 
 export function Chat() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -26,7 +23,7 @@ export function Chat() {
   const handleSubmit = useCallback(
     async (question: string) => {
       const userMessage: DisplayMessage = {
-        id: nextMessageId(),
+        id: createMessageId(),
         role: "user",
         content: question,
       };
@@ -38,7 +35,7 @@ export function Chat() {
       try {
         const response = await postChat({ question });
         const assistantMessage: DisplayMessage = {
-          id: nextMessageId(),
+          id: createMessageId(),
           role: "assistant",
           content: response.answer,
           sources: response.sources,
@@ -51,7 +48,7 @@ export function Chat() {
             ? error.message
             : "Something went wrong. Please try again.";
         const errorMessage: DisplayMessage = {
-          id: nextMessageId(),
+          id: createMessageId(),
           role: "assistant",
           content,
           isError: true,
