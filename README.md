@@ -158,7 +158,7 @@ The FastAPI service exposes a stable JSON contract for any frontend or client. I
 | Endpoint | Description |
 |----------|-------------|
 | `GET /jobs/stats?country={code}` | Job totals and role breakdown for a country (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) |
-| `GET /jobs/search?q={query}&limit={n}&country={code}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`). Optional `country` filter (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) constrains results to that country via Qdrant payload filtering. |
+| `GET /jobs/search?q={query}&limit={n}&country={code}&remote={true|false}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`). Optional `country` filter (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) and optional `remote` filter constrain results via Qdrant payload filtering. |
 | `POST /chat` | Single-turn RAG chat: retrieve jobs from Qdrant, then generate a grounded answer via the `Generator` interface (Gemini 2.5 Flash by default). Optional `country`/`remote` in the request body apply payload filters; when omitted, `/chat` infers them from the question text via deterministic keyword matching. Explicit request fields always override inferred values. See [ADR-0001](docs/adr/0001-llm-provider-strategy.md) and [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md). |
 
 Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when the `api` service is running.

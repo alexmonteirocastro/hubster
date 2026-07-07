@@ -44,6 +44,22 @@ def test_extract_filters_from_question_returns_none_when_no_signals():
     assert result == ExtractedFilters(country=None, remote=None)
 
 
+def test_extract_filters_from_question_detects_remote_negation():
+    result = extract_filters_from_question(
+        "I don't want a remote job, must be on-site in Copenhagen"
+    )
+
+    assert result == ExtractedFilters(country=CountryCode.DENMARK, remote=False)
+
+
+def test_extract_filters_from_question_skips_country_when_multiple_appear():
+    result = extract_filters_from_question(
+        "I've worked in Sweden before, but I'm looking for backend roles in Denmark now"
+    )
+
+    assert result == ExtractedFilters(country=None, remote=None)
+
+
 def test_resolve_chat_filters_uses_explicit_country_over_question_text():
     result = resolve_chat_filters(
         "frontend roles in Sweden",

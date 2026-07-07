@@ -66,6 +66,10 @@ def jobs_search(
         default=None,
         description="Optional country filter (DK, SE, NO, FI, IS, EU)",
     ),
+    remote: bool | None = Query(
+        default=None,
+        description="Optional remote-work filter (true = remote only, false = on-site only)",
+    ),
 ) -> JobSearchResponse:
     try:
         settings = get_settings()
@@ -76,6 +80,7 @@ def jobs_search(
             query_text=q,
             limit=limit,
             country=country,
+            remote=remote,
         )
     except ValidationError as exc:
         raise HTTPException(
