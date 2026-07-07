@@ -1,8 +1,11 @@
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from qdrant_client import QdrantClient
+
+_DEFAULT_CORS_ORIGINS = ("http://localhost:5173",)
 
 
 class Settings(BaseSettings):
@@ -19,6 +22,22 @@ class Settings(BaseSettings):
         default="JOBS_DEV", validation_alias="QDRANT_DEV_COLLECTION_NAME"
     )
     embedding_model: str = Field(validation_alias="EMBEDDING_MODEL")
+    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: list(_DEFAULT_CORS_ORIGINS),
+        validation_alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: str | list[str] | None) -> list[str]:
+        if value is None or value == "":
+            return list(_DEFAULT_CORS_ORIGINS)
+        if isinstance(value, str):
+            origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+            if not origins:
+                raise ValueError("must contain at least one origin")
+            return origins
+        return value
 
     @field_validator(
         "qdrant_url", "qdrant_collection_name", "qdrant_dev_collection_name", "embedding_model"

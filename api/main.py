@@ -1,5 +1,6 @@
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from qdrant_client.http.exceptions import UnexpectedResponse
 
@@ -17,10 +18,24 @@ from llm_client.exceptions import (
 from the_hub_client import CountryCode, get_full_jobs_picture_by_country
 from the_hub_client.models import JobOpenings
 
-app = FastAPI(
-    title="Hubster API",
-    description="JSON API for job stats and semantic search over The Hub listings.",
-)
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    application = FastAPI(
+        title="Hubster API",
+        description="JSON API for job stats and semantic search over The Hub listings.",
+    )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    return application
+
+
+app = create_app()
 
 _REQUIRED_HIT_PAYLOAD_FIELDS = {
     "job_id": "job_url_identifier",
@@ -54,6 +69,11 @@ def _payload_to_hit(score: float, payload: dict) -> JobSearchHit:
             status_code=502,
             detail="Search result payload is missing required fields.",
         ) from exc
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 @app.get("/jobs/stats", response_model=JobOpenings)

@@ -3,14 +3,52 @@ from unittest.mock import patch
 
 import requests
 import responses
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from api.main import app
+from api.main import app, create_app
+from db.settings import get_settings
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
 
 client = TestClient(app)
+
+
+def test_health_returns_ok():
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_cors_middleware_configured_from_settings(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://example.com,http://other.com",
+    )
+    get_settings.cache_clear()
+
+    test_app = create_app()
+    cors = next(m for m in test_app.user_middleware if m.cls is CORSMiddleware)
+
+    assert cors.kwargs["allow_origins"] == ["http://example.com", "http://other.com"]
+
+
+def test_cors_preflight_allows_configured_origin():
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
 @responses.activate
