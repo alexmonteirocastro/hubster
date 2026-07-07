@@ -55,7 +55,7 @@ cp .env.example .env
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
 | `HUB_CLIENT_TIMEOUT` | Per-request timeout in seconds (optional) | `30.0` |
 
-Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error at first use, not a silently empty string. The Qdrant client is constructed lazily via `get_qdrant_client()` on first real use, so importing `db` does not open a network connection.
+Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection.
 
 > In Docker Compose, `QDRANT_URL` is overridden to `http://qdrant:6333` so the app container reaches Qdrant by service name.
 
@@ -166,6 +166,7 @@ The FastAPI service exposes a stable JSON contract for any frontend or client. I
 
 | Endpoint | Description |
 |----------|-------------|
+| `GET /health` | Process liveness probe (`{"status": "ok"}`); no dependency checks |
 | `GET /jobs/stats?country={code}` | Job totals and role breakdown for a country (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) |
 | `GET /jobs/search?q={query}&limit={n}&country={code}&remote={true|false}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`). Optional `country` filter (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) and optional `remote` filter constrain results via Qdrant payload filtering. |
 | `POST /chat` | Single-turn RAG chat: retrieve jobs from Qdrant, then generate a grounded answer via the `Generator` interface (Gemini 2.5 Flash by default). Optional `country`/`remote` in the request body apply payload filters; when omitted, `/chat` infers them from the question text via deterministic keyword matching. Explicit request fields always override inferred values. See [ADR-0001](docs/adr/0001-llm-provider-strategy.md) and [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md). |
@@ -179,6 +180,8 @@ uv run uvicorn api.main:app --reload --port 8000
 ```
 
 Requires `.env` with Qdrant settings and a running Qdrant instance (see above). Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` additionally requires `GEMINI_API_KEY` and uses the provider-agnostic `llm_client` package described in [ADR-0001](docs/adr/0001-llm-provider-strategy.md).
+
+**CORS:** Browser clients (e.g. a Vite dev server on port 5173) must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated). The default allows `http://localhost:5173`. Override in `.env` when the frontend runs on a different origin.
 
 > Any future frontend should call this API rather than Qdrant or The Hub directly.
 

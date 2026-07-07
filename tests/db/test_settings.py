@@ -65,6 +65,34 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.qdrant_collection_name == "JOBS_ON_THE_HUB"
     assert settings.qdrant_dev_collection_name == "JOBS_DEV"
     assert settings.embedding_model == "BAAI/bge-small-en-v1.5"
+    assert settings.cors_allowed_origins == ["http://localhost:5173"]
+
+
+def test_get_settings_parses_cors_allowed_origins(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173, http://localhost:3000",
+    )
+
+    settings = get_settings()
+
+    assert settings.cors_allowed_origins == [
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+
+
+def test_settings_rejects_empty_cors_allowed_origins(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "  ,  ")
+
+    with pytest.raises(ValidationError):
+        Settings()
 
 
 def test_get_qdrant_client_returns_same_instance(monkeypatch):
