@@ -76,6 +76,7 @@ def test_extract_filters_from_question_same_country_multiple_aliases_is_not_ambi
         "I have no problem with remote work",
         "I'm not opposed to remote work",
         "I don't mind remote work",
+        "I wouldn't mind remote work",
         "No preference, remote is fine",
     ],
 )

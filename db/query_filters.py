@@ -49,6 +49,7 @@ REMOTE_NEUTRAL_PHRASES = (
     "no issue with remote",
     "not opposed to remote",
     "don't mind remote",
+    "wouldn't mind remote",
     "do not mind remote",
     "remote is fine",
     "remote is okay",
