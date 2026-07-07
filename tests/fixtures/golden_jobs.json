@@ -40,5 +40,33 @@
     "salary_type": "",
     "salary": "N/A",
     "equity": "N/A"
+  },
+  {
+    "job_id": "jkl012",
+    "job_title": "Frontend Developer",
+    "company": "Nordic UI",
+    "job_role": "frontenddeveloper",
+    "company_description": "We craft interfaces.",
+    "job_description": "Build React frontends for our platform.",
+    "country": "Sweden",
+    "locality": "Stockholm",
+    "remote": true,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
+  },
+  {
+    "job_id": "pqr678",
+    "job_title": "Backend Developer",
+    "company": "Oslo Tech",
+    "job_role": "backenddeveloper",
+    "company_description": "We build APIs.",
+    "job_description": "Python backend services and REST APIs.",
+    "country": "Norway",
+    "locality": "Oslo",
+    "remote": false,
+    "salary_type": "range",
+    "salary": "Ranging from 600000 to 800000",
+    "equity": "0.2%"
   }
 ]

@@ -61,6 +61,10 @@ def jobs_stats(country: CountryCode) -> JobOpenings:
 def jobs_search(
     q: str = Query(..., min_length=1, description="Natural-language search query"),
     limit: int = Query(5, ge=1, le=50, description="Maximum number of results"),
+    country: CountryCode | None = Query(
+        default=None,
+        description="Optional country filter (DK, SE, NO, FI, IS, EU)",
+    ),
 ) -> JobSearchResponse:
     try:
         settings = get_settings()
@@ -70,6 +74,7 @@ def jobs_search(
             collection_name=settings.qdrant_collection_name,
             query_text=q,
             limit=limit,
+            country=country,
         )
     except ValidationError as exc:
         raise HTTPException(
@@ -125,6 +130,7 @@ def chat(
             collection_name=settings.qdrant_collection_name,
             query_text=request.question,
             limit=request.limit,
+            country=request.country,
         )
     except ValidationError as exc:
         raise HTTPException(

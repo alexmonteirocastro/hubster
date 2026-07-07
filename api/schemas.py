@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from the_hub_client.models import CountryCode
+
 
 class JobSearchHit(BaseModel):
     score: float
@@ -25,6 +27,10 @@ class ChatRequest(BaseModel):
         ge=1,
         le=50,
         description="Maximum number of jobs to retrieve as context",
+    )
+    country: CountryCode | None = Field(
+        default=None,
+        description="Optional country filter (DK, SE, NO, FI, IS, EU)",
     )
 
 

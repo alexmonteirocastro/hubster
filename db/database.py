@@ -5,6 +5,7 @@ from qdrant_client import QdrantClient, models
 
 from db.settings import get_settings
 from the_hub_client import JobOpportunity
+from the_hub_client.models import CountryCode, country_code_to_hub_country_name
 
 
 def job_id_to_point_id(job_id: str) -> str:
@@ -17,6 +18,16 @@ def create_collection(db_client: QdrantClient, collection_name: str):
         db_client.create_collection(
             collection_name=collection_name,
             vectors_config=db_client.get_fastembed_vector_params(),
+        )
+        db_client.create_payload_index(
+            collection_name=collection_name,
+            field_name="Country",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
+        db_client.create_payload_index(
+            collection_name=collection_name,
+            field_name="Remote",
+            field_schema=models.PayloadSchemaType.BOOL,
         )
 
 
@@ -118,15 +129,31 @@ def query_jobs_in_qdrant(
     query_text: str,
     *,
     limit: int = 5,
+    country: CountryCode | None = None,
 ):
     embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
+
+    query_filter = None
+    if country is not None:
+        # Hub's location.country string is stored verbatim in the Qdrant Country field.
+        query_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="Country",
+                    match=models.MatchValue(
+                        value=country_code_to_hub_country_name(country)
+                    ),
+                )
+            ]
+        )
 
     search_results = db_client.query_points(
         collection_name=collection_name,
         query=models.Document(text=query_text, model=embedding_model),
         using=vector_name,
         limit=limit,
+        query_filter=query_filter,
     )
 
     return search_results

@@ -158,8 +158,8 @@ The FastAPI service exposes a stable JSON contract for any frontend or client. I
 | Endpoint | Description |
 |----------|-------------|
 | `GET /jobs/stats?country={code}` | Job totals and role breakdown for a country (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) |
-| `GET /jobs/search?q={query}&limit={n}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`) |
-| `POST /chat` | Single-turn RAG chat: retrieve jobs from Qdrant, then generate a grounded answer via the `Generator` interface (Gemini 2.5 Flash by default). See [ADR-0001](docs/adr/0001-llm-provider-strategy.md). |
+| `GET /jobs/search?q={query}&limit={n}&country={code}` | Semantic search over the Qdrant collection (default `limit=5`, max `50`). Optional `country` filter (`DK`, `SE`, `NO`, `FI`, `IS`, `EU`) constrains results to that country via Qdrant payload filtering. |
+| `POST /chat` | Single-turn RAG chat: retrieve jobs from Qdrant, then generate a grounded answer via the `Generator` interface (Gemini 2.5 Flash by default). Optional `country` in the request body applies the same payload filter as `/jobs/search`. See [ADR-0001](docs/adr/0001-llm-provider-strategy.md) and [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md). |
 
 Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when the `api` service is running.
 
@@ -222,12 +222,15 @@ Job Description: …
 - `Salary Type`, `Salary`, `Equity`
 - `document_text` (full embedded string)
 
+`Country` and `Remote` are indexed as payload fields at collection creation time (`Country` as keyword, `Remote` as boolean) so filtered semantic search stays efficient as the collection grows (see [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md)). Indexes are only created when a collection is first created; existing collections deployed before this change need to be re-created or migrated manually to gain them.
+
 Point IDs are deterministic UUID5 values derived from the Hub job ID.
 
 ## Programmatic usage
 
 ```python
 from db import create_collection, get_qdrant_client, get_settings, query_jobs_in_qdrant
+from the_hub_client import CountryCode
 
 settings = get_settings()
 client = get_qdrant_client()
@@ -238,6 +241,7 @@ results = query_jobs_in_qdrant(
     db_client=client,
     collection_name=settings.qdrant_collection_name,
     query_text="Looking for a Python developer in Denmark",
+    country=CountryCode.DENMARK,
 )
 
 for hit in results.points:
