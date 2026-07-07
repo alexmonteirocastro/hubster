@@ -60,6 +60,8 @@ def test_chat_returns_grounded_answer_via_injected_generator(
                 score=0.88,
                 payload={
                     "job_url_identifier": "job-123",
+                    "job_title": "Backend Developer",
+                    "company": "Acme",
                     "job_role": "Backend Developer",
                     "Country": "Denmark",
                     "location": "Copenhagen",
@@ -82,6 +84,8 @@ def test_chat_returns_grounded_answer_via_injected_generator(
             "job_id": "job-123",
             "job_role": "Backend Developer",
             "document_text": "Job Title: Backend Developer\nCompany: Acme",
+            "job_title": "Backend Developer",
+            "company": "Acme",
             "country": "Denmark",
             "location": "Copenhagen",
         }
@@ -90,6 +94,39 @@ def test_chat_returns_grounded_answer_via_injected_generator(
     context, question = fake_generator.calls[0]
     assert "Backend Developer" in context
     assert question == "any backend roles?"
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_omits_job_title_and_company_when_not_in_payload(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "job-legacy",
+                    "job_role": "Backend Developer",
+                    "document_text": "Job Title: Backend Developer\nCompany: Acme",
+                },
+            )
+        ]
+    )
+
+    response = client.post("/chat", json={"question": "any backend roles?"})
+
+    assert response.status_code == 200
+    source = response.json()["sources"][0]
+    assert source["job_title"] is None
+    assert source["company"] is None
 
 
 @patch("api.main.query_jobs_in_qdrant")

@@ -3,8 +3,44 @@ from unittest.mock import MagicMock, call
 
 from qdrant_client import models
 
-from db.database import create_collection, query_jobs_in_qdrant
-from the_hub_client.models import CountryCode
+from db.database import create_collection, load_jobs_into_qdrant, query_jobs_in_qdrant
+from the_hub_client.models import CountryCode, JobOpportunity
+
+
+def _sample_job() -> JobOpportunity:
+    return JobOpportunity(
+        job_id="job-123",
+        job_title="Backend Engineer",
+        company="Acme Corp",
+        job_role="backenddeveloper",
+        company_description="We build things.",
+        job_description="Build APIs.",
+        country="Denmark",
+        locality="Copenhagen",
+        remote=True,
+        salary_type="range",
+        salary="Competitive",
+        equity="Yes",
+    )
+
+
+def test_load_jobs_into_qdrant_includes_job_title_and_company_in_payload(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+    )
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    load_jobs_into_qdrant(db_client, "JOBS_DEV", [_sample_job()])
+
+    db_client.upsert.assert_called_once()
+    _, kwargs = db_client.upsert.call_args
+    payload = kwargs["points"][0].payload
+    assert payload["job_title"] == "Backend Engineer"
+    assert payload["company"] == "Acme Corp"
 
 
 def test_create_collection_creates_payload_indexes_for_country_and_remote():

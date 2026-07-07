@@ -22,7 +22,7 @@ app = FastAPI(
     description="JSON API for job stats and semantic search over The Hub listings.",
 )
 
-_PAYLOAD_FIELDS = {
+_REQUIRED_HIT_PAYLOAD_FIELDS = {
     "job_id": "job_url_identifier",
     "job_role": "job_role",
     "country": "Country",
@@ -33,13 +33,22 @@ _PAYLOAD_FIELDS = {
     "equity": "Equity",
 }
 
+# Not guaranteed present until the ALE-81 backfill runs — see ADR-0003.
+_OPTIONAL_HIT_PAYLOAD_FIELDS = {
+    "job_title": "job_title",
+    "company": "company",
+}
+
 
 def _payload_to_hit(score: float, payload: dict) -> JobSearchHit:
     try:
-        return JobSearchHit(
-            score=score,
-            **{field: payload[payload_key] for field, payload_key in _PAYLOAD_FIELDS.items()},
-        )
+        fields = {
+            field: payload[payload_key]
+            for field, payload_key in _REQUIRED_HIT_PAYLOAD_FIELDS.items()
+        }
+        for field, payload_key in _OPTIONAL_HIT_PAYLOAD_FIELDS.items():
+            fields[field] = payload.get(payload_key)
+        return JobSearchHit(score=score, **fields)
     except KeyError as exc:
         raise HTTPException(
             status_code=502,
@@ -113,6 +122,8 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
             job_id=payload["job_url_identifier"],
             job_role=payload["job_role"],
             document_text=payload.get("document_text", ""),
+            job_title=payload.get("job_title"),
+            company=payload.get("company"),
             country=payload.get("Country"),
             location=payload.get("location"),
         )

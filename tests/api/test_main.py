@@ -125,6 +125,8 @@ def test_jobs_search_returns_clean_json(
                 score=0.91,
                 payload={
                     "job_url_identifier": "job-123",
+                    "job_title": "Backend Developer",
+                    "company": "Acme",
                     "job_role": "Backend Developer",
                     "Country": "Denmark",
                     "location": "Copenhagen",
@@ -146,6 +148,8 @@ def test_jobs_search_returns_clean_json(
     assert body["results"][0] == {
         "score": 0.91,
         "job_id": "job-123",
+        "job_title": "Backend Developer",
+        "company": "Acme",
         "job_role": "Backend Developer",
         "country": "Denmark",
         "location": "Copenhagen",
@@ -155,6 +159,42 @@ def test_jobs_search_returns_clean_json(
         "equity": "Yes",
     }
     mock_query_jobs.assert_called_once()
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_jobs_search_omits_job_title_and_company_when_not_in_payload(
+    mock_get_settings, mock_get_qdrant_client, mock_query_jobs
+):
+    mock_get_settings.return_value = SimpleNamespace(
+        qdrant_collection_name="JOBS_ON_THE_HUB"
+    )
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.91,
+                payload={
+                    "job_url_identifier": "job-legacy",
+                    "job_role": "Backend Developer",
+                    "Country": "Denmark",
+                    "location": "Copenhagen",
+                    "Remote": True,
+                    "Salary Type": "paid",
+                    "Salary": "Competitive",
+                    "Equity": "Yes",
+                },
+            )
+        ]
+    )
+
+    response = client.get("/jobs/search", params={"q": "python developer"})
+
+    assert response.status_code == 200
+    result = response.json()["results"][0]
+    assert result["job_title"] is None
+    assert result["company"] is None
 
 
 @patch("api.main.get_qdrant_client", side_effect=ConnectionError("refused"))
