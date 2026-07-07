@@ -42,6 +42,19 @@ REMOTE_FALSE_PHRASES = (
     "must be on site",
 )
 
+# Idioms where a negation word appears near "remote" but expresses openness or
+# indifference, not a request to exclude remote roles. Resolve to no filter.
+REMOTE_NEUTRAL_PHRASES = (
+    "no problem with remote",
+    "no issue with remote",
+    "not opposed to remote",
+    "don't mind remote",
+    "do not mind remote",
+    "remote is fine",
+    "remote is okay",
+    "remote is ok",
+)
+
 REMOTE_PHRASES = (
     "work from home",
     "work-from-home",
@@ -109,6 +122,10 @@ def _detect_remote(question: str) -> bool | None:
     for phrase in REMOTE_FALSE_PHRASES:
         if phrase in lowered:
             return False
+
+    for phrase in REMOTE_NEUTRAL_PHRASES:
+        if phrase in lowered:
+            return None
 
     for phrase in REMOTE_PHRASES:
         start = lowered.find(phrase)

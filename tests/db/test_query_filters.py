@@ -70,6 +70,21 @@ def test_extract_filters_from_question_same_country_multiple_aliases_is_not_ambi
     assert result == ExtractedFilters(country=CountryCode.DENMARK, remote=None)
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        "I have no problem with remote work",
+        "I'm not opposed to remote work",
+        "I don't mind remote work",
+        "No preference, remote is fine",
+    ],
+)
+def test_extract_filters_from_question_skips_remote_filter_for_neutral_idioms(question):
+    result = extract_filters_from_question(question)
+
+    assert result.remote is None
+
+
 def test_extract_filters_from_question_skips_country_when_multiple_appear():
     result = extract_filters_from_question(
         "I've worked in Sweden before, but I'm looking for backend roles in Denmark now"
