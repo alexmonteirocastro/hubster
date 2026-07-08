@@ -145,7 +145,7 @@ describe("Chat", () => {
 
   it("shows an error message on 5xx API responses", async () => {
     mockPostChat.mockRejectedValue(
-      new ApiHttpError(503, "The generation service is rate-limited. Please try again shortly."),
+      new ApiHttpError(502, "The generation service is unavailable."),
     );
     const user = userEvent.setup();
 
@@ -155,12 +155,14 @@ describe("Chat", () => {
     await user.click(screen.getByRole("button", { name: /ask/i }));
 
     expect(
-      await screen.findByText(/rate-limited/i),
+      await screen.findByText(/unavailable/i),
     ).toBeInTheDocument();
   });
 
   it("shows an error message on 429 API responses", async () => {
-    mockPostChat.mockRejectedValue(new ApiHttpError(429));
+    mockPostChat.mockRejectedValue(
+      new ApiHttpError(429, "The generation service is rate-limited. Please try again shortly."),
+    );
     const user = userEvent.setup();
 
     render(<Chat />);

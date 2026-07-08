@@ -270,7 +270,7 @@ def test_chat_skips_generation_when_document_text_is_missing(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
-def test_chat_returns_503_when_generator_is_rate_limited(
+def test_chat_returns_429_when_generator_is_rate_limited(
     mock_get_settings,
     mock_get_qdrant_client,
     mock_query_jobs,
@@ -297,7 +297,7 @@ def test_chat_returns_503_when_generator_is_rate_limited(
 
     response = client.post("/chat", json={"question": "backend roles?"})
 
-    assert response.status_code == 503
+    assert response.status_code == 429
     assert "rate-limited" in response.json()["detail"].lower()
 
 

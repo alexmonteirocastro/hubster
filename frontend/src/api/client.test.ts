@@ -64,10 +64,10 @@ describe("postChat", () => {
     });
   });
 
-  it("prefers API error detail over the default message", async () => {
+  it("prefers API error detail over the default message on 429", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
-      status: 503,
+      status: 429,
       json: () =>
         Promise.resolve({
           detail: "The generation service is rate-limited. Please try again shortly.",
@@ -75,7 +75,7 @@ describe("postChat", () => {
     } as Response);
 
     await expect(postChat({ question: "hello" })).rejects.toMatchObject({
-      status: 503,
+      status: 429,
       message: "The generation service is rate-limited. Please try again shortly.",
     });
   });

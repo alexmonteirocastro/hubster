@@ -251,7 +251,7 @@ def chat(
         answer = generator.generate(context=context, question=chat_request.question)
     except GenerationRateLimitError as exc:
         raise HTTPException(
-            status_code=503,
+            status_code=429,
             detail="The generation service is rate-limited. Please try again shortly.",
         ) from exc
     except GenerationConfigurationError as exc:
