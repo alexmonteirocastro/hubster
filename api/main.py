@@ -202,6 +202,14 @@ def chat(
 ) -> ChatResponse:
     try:
         settings = get_settings()
+        if len(chat_request.question) > settings.chat_question_max_length:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"question must be at most {settings.chat_question_max_length} "
+                    "characters long"
+                ),
+            )
         client = get_qdrant_client()
         filters = resolve_chat_filters(
             chat_request.question,

@@ -348,11 +348,14 @@ def test_chat_returns_503_when_qdrant_is_unavailable(
     assert response.json()["detail"] == "Qdrant is unavailable."
 
 
+@patch("api.main._chat_rate_limit", return_value="10/minute")
 @patch(
     "api.main.get_settings",
     side_effect=ValidationError.from_exception_data("Settings", []),
 )
-def test_chat_returns_500_when_configuration_is_invalid(mock_get_settings):
+def test_chat_returns_500_when_configuration_is_invalid(
+    mock_get_settings, mock_chat_rate_limit
+):
     response = client.post("/chat", json={"question": "backend roles?"})
 
     assert response.status_code == 500
@@ -375,13 +378,39 @@ def test_chat_rejects_oversized_question(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_settings.return_value = api_settings_namespace(
+        chat_question_max_length=5,
+    )
     mock_get_qdrant_client.return_value = object()
 
-    response = client.post("/chat", json={"question": "x" * 501})
+    response = client.post("/chat", json={"question": "x" * 6})
 
     assert response.status_code == 422
+    assert response.json()["detail"] == "question must be at most 5 characters long"
     mock_query_jobs.assert_not_called()
+    assert fake_generator.calls == []
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_accepts_question_at_max_length(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace(
+        chat_question_max_length=5,
+    )
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+    response = client.post("/chat", json={"question": "x" * 5})
+
+    assert response.status_code == 200
+    mock_query_jobs.assert_called_once()
     assert fake_generator.calls == []
 
 
