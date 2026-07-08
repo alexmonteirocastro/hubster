@@ -1,4 +1,7 @@
-from db.backfill import backfill_job_title_company_metadata, extract_title_company_from_document_text
+from db.backfill import (
+    backfill_job_title_company_metadata,
+    extract_title_company_from_document_text,
+)
 from db.database import (
     clear_db,
     create_collection,

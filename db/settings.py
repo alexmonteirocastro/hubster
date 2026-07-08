@@ -42,7 +42,10 @@ class Settings(BaseSettings):
         return value
 
     @field_validator(
-        "qdrant_url", "qdrant_collection_name", "qdrant_dev_collection_name", "embedding_model"
+        "qdrant_url",
+        "qdrant_collection_name",
+        "qdrant_dev_collection_name",
+        "embedding_model",
     )
     @classmethod
     def must_not_be_empty(cls, value: str) -> str:
@@ -67,9 +70,7 @@ def get_settings() -> Settings:
 def get_qdrant_client() -> QdrantClient:
     settings = get_settings()
     if settings.qdrant_api_key:
-        client = QdrantClient(
-            url=settings.qdrant_url, api_key=settings.qdrant_api_key
-        )
+        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
     else:
         client = QdrantClient(url=settings.qdrant_url)
     client.set_model(settings.embedding_model)

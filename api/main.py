@@ -4,7 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from api.schemas import ChatRequest, ChatResponse, ChatSource, JobSearchHit, JobSearchResponse
+from api.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ChatSource,
+    JobSearchHit,
+    JobSearchResponse,
+)
 from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from db.query_filters import resolve_chat_filters
 from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
@@ -97,7 +103,9 @@ def jobs_search(
     ),
     remote: bool | None = Query(
         default=None,
-        description="Optional remote-work filter (true = remote only, false = on-site only)",
+        description=(
+            "Optional remote-work filter (true = remote only, false = on-site only)"
+        ),
     ),
 ) -> JobSearchResponse:
     try:
@@ -122,7 +130,8 @@ def jobs_search(
             detail="Qdrant is unavailable.",
         ) from exc
 
-    # _payload_to_hit raises HTTPException on its own; kept outside try so it isn't swallowed.
+    # _payload_to_hit raises HTTPException on its own; kept outside try so it
+    # isn't swallowed.
     hits = []
     for hit in search_results.points:
         if hit.payload is None:
@@ -198,7 +207,9 @@ def chat(
             applied_remote=filters.remote,
         )
 
-    sources = [_payload_to_source(point.score, point.payload) for point in usable_points]
+    sources = [
+        _payload_to_source(point.score, point.payload) for point in usable_points
+    ]
     context = format_job_context([point.payload for point in usable_points])
 
     try:

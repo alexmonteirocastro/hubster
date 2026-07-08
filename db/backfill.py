@@ -12,7 +12,9 @@ _JOB_TITLE_PREFIX = "Job Title: "
 _COMPANY_PREFIX = "Company: "
 
 
-def extract_title_company_from_document_text(document_text: str) -> tuple[str, str] | None:
+def extract_title_company_from_document_text(
+    document_text: str,
+) -> tuple[str, str] | None:
     if not document_text:
         return None
 
@@ -33,7 +35,8 @@ def backfill_job_title_company_metadata(
     db_client: QdrantClient,
     collection_name: str,
 ) -> tuple[int, int, int]:
-    """One-time migration: add job_title/company payload fields to already-indexed points.
+    """One-time migration: add job_title/company payload fields to
+    already-indexed points.
 
     Idempotent — safe to re-run after an interrupted run. Skips points that already
     have both fields. Connection errors during the Hub API fallback abort the run
@@ -82,7 +85,10 @@ def backfill_job_title_company_metadata(
 
         for point in points:
             payload = point.payload or {}
-            if payload.get("job_title") is not None and payload.get("company") is not None:
+            if (
+                payload.get("job_title") is not None
+                and payload.get("company") is not None
+            ):
                 continue
 
             document_text = payload.get("document_text", "")
@@ -94,7 +100,9 @@ def backfill_job_title_company_metadata(
             else:
                 job_id = payload.get("job_url_identifier")
                 if not job_id:
-                    logger.warning("Point %s missing job_url_identifier; skipping.", point.id)
+                    logger.warning(
+                        "Point %s missing job_url_identifier; skipping.", point.id
+                    )
                     skipped_count += 1
                     continue
 

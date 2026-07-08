@@ -47,7 +47,8 @@ class GeminiGenerator(Generator):
         self._settings = settings
         self._client = client or genai.Client(
             api_key=settings.gemini_api_key,
-            # google-genai HttpOptions.timeout is in milliseconds (see genai.types.HttpOptions).
+            # google-genai HttpOptions.timeout is in milliseconds
+            # (see genai.types.HttpOptions).
             http_options={"timeout": int(settings.timeout_seconds * 1000)},
         )
 
@@ -65,7 +66,9 @@ class GeminiGenerator(Generator):
                 )
                 text = response.text
                 if not text or not text.strip():
-                    raise GenerationUnavailableError("Model returned an empty response.")
+                    raise GenerationUnavailableError(
+                        "Model returned an empty response."
+                    )
                 return text.strip()
             except GenerationError:
                 raise
@@ -76,4 +79,6 @@ class GeminiGenerator(Generator):
                 if self._settings.backoff_factor > 0:
                     time.sleep(self._settings.backoff_factor * (2**attempt))
 
-        raise GenerationUnavailableError("Generation failed after retries.") from last_exc
+        raise GenerationUnavailableError(
+            "Generation failed after retries."
+        ) from last_exc

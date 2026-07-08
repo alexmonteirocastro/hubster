@@ -1,6 +1,10 @@
 import pytest
 
-from db.query_filters import ExtractedFilters, extract_filters_from_question, resolve_chat_filters
+from db.query_filters import (
+    ExtractedFilters,
+    extract_filters_from_question,
+    resolve_chat_filters,
+)
 from the_hub_client.models import CountryCode
 
 

@@ -54,6 +54,17 @@ The FastAPI service exposes a stable JSON contract for any frontend or client. I
 
 Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when the `api` service is running.
 
+## Dev workflow
+
+Backend lint and format (requires `uv sync --group dev`):
+
+```bash
+uv run ruff check .
+uv run ruff format .
+```
+
+The frontend uses `oxlint` — run `npm run lint` from `frontend/`.
+
 ## Where to go next
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — environment variables, ingestion, local development, project layout, data model, Hub API client, and testing

@@ -112,7 +112,10 @@ def _get_session() -> requests.Session:
 
 
 def _apply_pacing(config: HubClientConfig) -> None:
-    """Enforce minimum delay between requests. Sequential ingestion only — see module docstring."""
+    """Enforce minimum delay between requests.
+
+    Sequential ingestion only — see module docstring.
+    """
     global _last_request_at
     if config.request_delay_seconds <= 0:
         return

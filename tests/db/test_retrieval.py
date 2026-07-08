@@ -10,7 +10,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
 
 def _load_golden_queries() -> dict:
-    return json.loads((FIXTURES_DIR / "golden_queries.json").read_text(encoding="utf-8"))
+    return json.loads(
+        (FIXTURES_DIR / "golden_queries.json").read_text(encoding="utf-8")
+    )
 
 
 def _job_ids_from_hits(hits) -> list[str]:
@@ -44,8 +46,8 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
         ]
 
         assert not missing, (
-            f"Golden query '{case['id']}' missed expected job(s) {missing} in top-{top_k}. "
-            f"Returned: {returned_job_ids}"
+            f"Golden query '{case['id']}' missed expected job(s) {missing} "
+            f"in top-{top_k}. Returned: {returned_job_ids}"
         )
 
         if country_name:

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
+import pytest
 from qdrant_client import models
 
 from db.database import create_collection, load_jobs_into_qdrant, query_jobs_in_qdrant
@@ -27,7 +28,9 @@ def _sample_job() -> JobOpportunity:
 def test_load_jobs_into_qdrant_includes_job_title_and_company_in_payload(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = SimpleNamespace(
-        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
     )
     monkeypatch.setattr(
         "db.database.get_settings",
@@ -41,6 +44,36 @@ def test_load_jobs_into_qdrant_includes_job_title_and_company_in_payload(monkeyp
     payload = kwargs["points"][0].payload
     assert payload["job_title"] == "Backend Engineer"
     assert payload["company"] == "Acme Corp"
+
+
+def test_load_jobs_into_qdrant_raises_when_parallel_lists_length_mismatch(
+    monkeypatch,
+):
+    """strict zip fails fast instead of silently dropping misaligned ingest data."""
+    import builtins
+
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
+    )
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    real_zip = zip
+
+    def zip_with_short_ids(*iterables, strict=False):
+        if strict and len(iterables) == 3:
+            iterables = (iterables[0][:0], iterables[1], iterables[2])
+        return real_zip(*iterables, strict=strict)
+
+    monkeypatch.setattr(builtins, "zip", zip_with_short_ids)
+
+    with pytest.raises(ValueError, match="zip"):
+        load_jobs_into_qdrant(db_client, "JOBS_DEV", [_sample_job()])
 
 
 def test_create_collection_creates_payload_indexes_for_country_and_remote():
@@ -80,7 +113,9 @@ def test_create_collection_skips_indexes_when_collection_already_exists():
 def test_query_jobs_in_qdrant_passes_country_filter_when_supplied(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = SimpleNamespace(
-        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
     )
     db_client.query_points.return_value = SimpleNamespace(points=[])
 
@@ -111,7 +146,9 @@ def test_query_jobs_in_qdrant_passes_country_filter_when_supplied(monkeypatch):
 def test_query_jobs_in_qdrant_omits_filter_when_country_not_supplied(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = SimpleNamespace(
-        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
     )
     db_client.query_points.return_value = SimpleNamespace(points=[])
 
@@ -133,7 +170,9 @@ def test_query_jobs_in_qdrant_omits_filter_when_country_not_supplied(monkeypatch
 def test_query_jobs_in_qdrant_passes_remote_filter_when_supplied(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = SimpleNamespace(
-        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
     )
     db_client.query_points.return_value = SimpleNamespace(points=[])
 
@@ -163,7 +202,9 @@ def test_query_jobs_in_qdrant_passes_remote_filter_when_supplied(monkeypatch):
 def test_query_jobs_in_qdrant_combines_country_and_remote_filters(monkeypatch):
     db_client = MagicMock()
     db_client.get_collection.return_value = SimpleNamespace(
-        config=SimpleNamespace(params=SimpleNamespace(vectors={"fast-bge-small-en": object()}))
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
     )
     db_client.query_points.return_value = SimpleNamespace(points=[])
 

@@ -5,7 +5,6 @@ from google.genai import errors as genai_errors
 
 from llm_client.exceptions import (
     GenerationConfigurationError,
-    GenerationRateLimitError,
     GenerationUnavailableError,
 )
 from llm_client.gemini import GeminiGenerator
@@ -121,7 +120,9 @@ def test_gemini_applies_exponential_backoff(mock_sleep):
         genai_errors.ServerError(503, {"error": {"message": "unavailable"}}, None),
         _mock_response("ok"),
     ]
-    generator = GeminiGenerator(_settings(max_retries=2, backoff_factor=1.5), client=client)
+    generator = GeminiGenerator(
+        _settings(max_retries=2, backoff_factor=1.5), client=client
+    )
 
     generator.generate("job context", "what roles?")
 
