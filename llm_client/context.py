@@ -1,3 +1,6 @@
+from collections.abc import Sequence
+from typing import Any, Protocol
+
 NO_MATCHING_JOBS_MESSAGE = (
     "No matching jobs found for your question. Try broadening your search terms."
 )
@@ -10,6 +13,11 @@ _SYSTEM_INSTRUCTION = (
 )
 
 
+class _RetrievalPoint(Protocol):
+    score: float
+    payload: dict[str, Any] | None
+
+
 def build_generation_prompt(context: str, question: str) -> str:
     return (
         f"{_SYSTEM_INSTRUCTION}\n\n"
@@ -19,7 +27,7 @@ def build_generation_prompt(context: str, question: str) -> str:
     )
 
 
-def format_job_context(payloads: list[dict]) -> str:
+def format_job_context(payloads: list[dict[str, Any]]) -> str:
     blocks: list[str] = []
     for index, payload in enumerate(payloads, start=1):
         document_text = payload.get("document_text", "")
@@ -30,12 +38,12 @@ def format_job_context(payloads: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def _payload_has_document_text(payload: dict) -> bool:
+def _payload_has_document_text(payload: dict[str, Any]) -> bool:
     document_text = payload.get("document_text", "")
     return isinstance(document_text, str) and bool(document_text.strip())
 
 
-def filter_usable_points(points) -> list:
+def filter_usable_points(points: Sequence[_RetrievalPoint]) -> list[_RetrievalPoint]:
     """Return retrieval hits that have non-empty document_text for generation."""
     return [
         point
@@ -44,5 +52,5 @@ def filter_usable_points(points) -> list:
     ]
 
 
-def has_sufficient_retrieval(points) -> bool:
+def has_sufficient_retrieval(points: Sequence[_RetrievalPoint]) -> bool:
     return bool(filter_usable_points(points))

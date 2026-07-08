@@ -1,6 +1,9 @@
 import uuid
+from typing import cast
+from uuid import UUID
 
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.models import QueryResponse, VectorParams
 
 from db.settings import get_settings
 from the_hub_client import JobOpportunity
@@ -11,7 +14,7 @@ def job_id_to_point_id(job_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, job_id))
 
 
-def create_collection(db_client: QdrantClient, collection_name: str):
+def create_collection(db_client: QdrantClient, collection_name: str) -> None:
     """check if collection exists, if not, create one"""
     if not db_client.collection_exists(collection_name):
         db_client.create_collection(
@@ -32,14 +35,22 @@ def create_collection(db_client: QdrantClient, collection_name: str):
 
 def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
     coll_info = db_client.get_collection(collection_name)
-    available_vector_names = list(coll_info.config.params.vectors.keys())  # type: ignore
+    vectors = coll_info.config.params.vectors
+    if vectors is None:
+        raise ValueError(f"Collection {collection_name!r} has no vector config.")
+    if isinstance(vectors, dict):
+        available_vector_names = list(vectors.keys())
+    elif isinstance(vectors, VectorParams):
+        available_vector_names = [""]
+    else:
+        raise ValueError(f"Unsupported vector config for {collection_name!r}.")
 
     return available_vector_names[0]
 
 
 def load_jobs_into_qdrant(
     db_client: QdrantClient, collection_name: str, jobs: list[JobOpportunity]
-):
+) -> None:
     embedding_model = get_settings().embedding_model
 
     jobs_documents = [
@@ -120,14 +131,16 @@ def get_indexed_job_ids(db_client: QdrantClient, collection_name: str) -> set[st
 
 def delete_jobs_from_qdrant(
     db_client: QdrantClient, collection_name: str, job_ids: list[str]
-):
+) -> None:
     if not job_ids:
         return
 
     point_ids = [job_id_to_point_id(job_id) for job_id in job_ids]
     db_client.delete(
         collection_name=collection_name,
-        points_selector=models.PointIdsList(points=point_ids),
+        points_selector=models.PointIdsList(
+            points=cast(list[int | str | UUID], point_ids)
+        ),
     )
     print(f"{len(point_ids)} stale jobs removed from the vector database")
 
@@ -140,7 +153,7 @@ def query_jobs_in_qdrant(
     limit: int = 5,
     country: CountryCode | None = None,
     remote: bool | None = None,
-):
+) -> QueryResponse:
     embedding_model = get_settings().embedding_model
     vector_name = get_vector_name(db_client, collection_name)
 
@@ -176,7 +189,7 @@ def query_jobs_in_qdrant(
     return search_results
 
 
-def drop_db(db_client: QdrantClient, collection_name: str):
+def drop_db(db_client: QdrantClient, collection_name: str) -> None:
     if db_client.collection_exists(collection_name):
         db_client.delete_collection(collection_name=collection_name)
         print(f"🔥 Collection '{collection_name}' deleted completely.")
@@ -184,7 +197,7 @@ def drop_db(db_client: QdrantClient, collection_name: str):
         print("Nothing to delete.")
 
 
-def clear_db(db_client: QdrantClient, collection_name: str):
+def clear_db(db_client: QdrantClient, collection_name: str) -> None:
     if db_client.collection_exists(collection_name):
         db_client.delete(
             collection_name=collection_name,

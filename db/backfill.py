@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 import requests
 from qdrant_client import QdrantClient, models
@@ -61,7 +62,9 @@ def backfill_job_title_company_metadata(
         )
         pending_operations = []
 
-    def enqueue_update(point_id: str | int, job_title: str, company: str) -> None:
+    def enqueue_update(
+        point_id: str | int | UUID, job_title: str, company: str
+    ) -> None:
         nonlocal pending_operations
         pending_operations.append(
             models.SetPayloadOperation(
