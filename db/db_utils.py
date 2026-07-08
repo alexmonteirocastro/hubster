@@ -1,5 +1,4 @@
 import csv
-from typing import List, Set, Tuple
 
 from qdrant_client import QdrantClient
 
@@ -24,12 +23,12 @@ INGEST_BATCH_SIZE = 15
 
 
 def compute_sync_diff(
-    live_job_ids: Set[str], indexed_job_ids: Set[str]
-) -> Tuple[Set[str], Set[str]]:
+    live_job_ids: set[str], indexed_job_ids: set[str]
+) -> tuple[set[str], set[str]]:
     return live_job_ids - indexed_job_ids, indexed_job_ids - live_job_ids
 
 
-def _chunk_job_ids(job_ids: List[str], chunk_size: int) -> List[List[str]]:
+def _chunk_job_ids(job_ids: list[str], chunk_size: int) -> list[list[str]]:
     if chunk_size <= 0:
         return [job_ids]
     return [job_ids[i : i + chunk_size] for i in range(0, len(job_ids), chunk_size)]
@@ -53,14 +52,13 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
                 pages_in_country=country_overall.number_of_pages,
                 total_jobs_in_country=country_overall.total_jobs,
             )
-            page_chunks = _chunk_job_ids(
-                all_job_ids, country_overall.jobs_per_page
-            )
+            page_chunks = _chunk_job_ids(all_job_ids, country_overall.jobs_per_page)
 
             for page, job_ids_in_page in enumerate(page_chunks, start=1):
                 jobs_batch = []
                 print(
-                    f"Scraping page {page} out of {country_overall.number_of_pages} for jobs in {country.name}"
+                    f"Scraping page {page} out of {country_overall.number_of_pages} "
+                    f"for jobs in {country.name}"
                 )
                 print(f"Page {page} has {len(job_ids_in_page)} job ids")
                 for job_id in job_ids_in_page:
@@ -98,7 +96,8 @@ def seed_dev_qdrant_db(
     for page in range(1, pages_to_fetch + 1):
         job_ids_in_page = get_job_ids_per_page_per_country(page=page, country=country)
         print(
-            f"Scraping dev sample page {page}/{pages_to_fetch} for jobs in {country.name}"
+            f"Scraping dev sample page {page}/{pages_to_fetch} "
+            f"for jobs in {country.name}"
         )
         print(f"Page {page} has {len(job_ids_in_page)} job ids")
 
@@ -106,9 +105,7 @@ def seed_dev_qdrant_db(
             batch_ids = job_ids_in_page[batch_start : batch_start + INGEST_BATCH_SIZE]
             jobs_batch = _scrape_jobs(batch_ids)
             if jobs_batch:
-                print(
-                    f"--- Ingesting {len(jobs_batch)} jobs into dev collection ---"
-                )
+                print(f"--- Ingesting {len(jobs_batch)} jobs into dev collection ---")
                 load_jobs_into_qdrant(
                     db_client=db_client,
                     collection_name=collection_name,
@@ -132,9 +129,10 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
         page_chunks = _chunk_job_ids(all_job_ids, country_overall.jobs_per_page)
 
         for page, job_ids_in_page in enumerate(page_chunks, start=1):
-            jobs_batch: List[JobOpportunity] = []
+            jobs_batch: list[JobOpportunity] = []
             print(
-                f"Scraping page {page} out of {country_overall.number_of_pages} for jobs in {country.name}"
+                f"Scraping page {page} out of {country_overall.number_of_pages} "
+                f"for jobs in {country.name}"
             )
             print(f"Page {page} has {len(job_ids_in_page)} job ids")
             for job_id in job_ids_in_page:
@@ -158,7 +156,8 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
 
                 if len(jobs_batch) < len(job_ids_in_page):
                     print(
-                        f"⚠️ Warning: Only {len(jobs_batch)}/{len(job_ids_in_page)} jobs were successfully scraped on this page."
+                        f"⚠️ Warning: Only {len(jobs_batch)}/{len(job_ids_in_page)} "
+                        "jobs were successfully scraped on this page."
                     )
 
             info = db_client.get_collection(collection_name)
@@ -166,8 +165,8 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
             print(f"Points (Jobs) in DB: {info.points_count}")
 
 
-def _scrape_jobs(job_ids: List[str]) -> List[JobOpportunity]:
-    jobs: List[JobOpportunity] = []
+def _scrape_jobs(job_ids: list[str]) -> list[JobOpportunity]:
+    jobs: list[JobOpportunity] = []
     for job_id in job_ids:
         try:
             job_data = scrape_job_offer_by_id(job_id=job_id)
@@ -214,10 +213,14 @@ def sync_qdrant_db(db_client: QdrantClient, collection_name: str):
                 )
                 if len(jobs_batch) < len(batch_ids):
                     print(
-                        f"⚠️ Warning: Only {len(jobs_batch)}/{len(batch_ids)} jobs were successfully scraped in this batch."
+                        f"⚠️ Warning: Only {len(jobs_batch)}/{len(batch_ids)} "
+                        "jobs were successfully scraped in this batch."
                     )
     elif not to_remove:
-        print("Collection is already up to date — no Hub detail fetches or Qdrant writes needed.")
+        print(
+            "Collection is already up to date — no Hub detail fetches or "
+            "Qdrant writes needed."
+        )
 
     info = db_client.get_collection(collection_name)
     print(f"\nCollection Status: {info.status}")

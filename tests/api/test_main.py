@@ -97,7 +97,9 @@ def test_jobs_search_rejects_empty_query():
 
 
 def test_jobs_search_rejects_invalid_country():
-    response = client.get("/jobs/search", params={"q": "python developer", "country": "XX"})
+    response = client.get(
+        "/jobs/search", params={"q": "python developer", "country": "XX"}
+    )
 
     assert response.status_code == 422
 
@@ -251,7 +253,10 @@ def test_jobs_search_returns_503_when_qdrant_is_unavailable(
     assert response.json()["detail"] == "Qdrant is unavailable."
 
 
-@patch("api.main.get_settings", side_effect=ValidationError.from_exception_data("Settings", []))
+@patch(
+    "api.main.get_settings",
+    side_effect=ValidationError.from_exception_data("Settings", []),
+)
 def test_jobs_search_returns_500_when_configuration_is_invalid(mock_get_settings):
     response = client.get("/jobs/search", params={"q": "python developer"})
 
@@ -289,4 +294,6 @@ def test_jobs_search_returns_502_when_payload_is_missing_fields(
     response = client.get("/jobs/search", params={"q": "python developer"})
 
     assert response.status_code == 502
-    assert response.json()["detail"] == "Search result payload is missing required fields."
+    assert (
+        response.json()["detail"] == "Search result payload is missing required fields."
+    )

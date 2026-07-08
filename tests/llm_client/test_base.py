@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from llm_client import reset_generator
 from llm_client.base import Generator
 from llm_client.context import (
     NO_MATCHING_JOBS_MESSAGE,
@@ -9,7 +10,6 @@ from llm_client.context import (
     format_job_context,
     has_sufficient_retrieval,
 )
-from llm_client import reset_generator
 from llm_client.settings import LLMSettings, get_llm_settings
 
 
@@ -46,7 +46,10 @@ def test_build_generation_prompt_includes_context_and_question():
 def test_format_job_context_skips_empty_document_text():
     context = format_job_context(
         [
-            {"job_url_identifier": "job-1", "document_text": "Backend role in Copenhagen"},
+            {
+                "job_url_identifier": "job-1",
+                "document_text": "Backend role in Copenhagen",
+            },
             {"job_url_identifier": "job-2", "document_text": ""},
         ]
     )
@@ -58,8 +61,21 @@ def test_format_job_context_skips_empty_document_text():
 
 def test_filter_usable_points_excludes_empty_document_text():
     points = [
-        type("Point", (), {"payload": {"job_url_identifier": "job-1", "document_text": "Backend role"}})(),
-        type("Point", (), {"payload": {"job_url_identifier": "job-2", "document_text": ""}})(),
+        type(
+            "Point",
+            (),
+            {
+                "payload": {
+                    "job_url_identifier": "job-1",
+                    "document_text": "Backend role",
+                }
+            },
+        )(),
+        type(
+            "Point",
+            (),
+            {"payload": {"job_url_identifier": "job-2", "document_text": ""}},
+        )(),
         type("Point", (), {"payload": None})(),
     ]
 

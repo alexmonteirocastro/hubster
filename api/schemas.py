@@ -23,7 +23,9 @@ class JobSearchResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="Natural-language question about jobs")
+    question: str = Field(
+        ..., min_length=1, description="Natural-language question about jobs"
+    )
     limit: int = Field(
         default=5,
         ge=1,
@@ -36,7 +38,9 @@ class ChatRequest(BaseModel):
     )
     remote: bool | None = Field(
         default=None,
-        description="Optional remote-work filter (true = remote only, false = on-site only)",
+        description=(
+            "Optional remote-work filter (true = remote only, false = on-site only)"
+        ),
     )
 
 
@@ -56,13 +60,22 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[ChatSource] = Field(default_factory=list)
     generated: bool = Field(
-        description="True when the answer was produced by the Generator; False for deterministic fallback."
+        description=(
+            "True when the answer was produced by the Generator; "
+            "False for deterministic fallback."
+        )
     )
     applied_country: CountryCode | None = Field(
         default=None,
-        description="Country filter actually applied to retrieval (explicit or derived); null when none resolved.",
+        description=(
+            "Country filter actually applied to retrieval (explicit or derived); "
+            "null when none resolved."
+        ),
     )
     applied_remote: bool | None = Field(
         default=None,
-        description="Remote filter actually applied to retrieval (explicit or derived); null when none resolved.",
+        description=(
+            "Remote filter actually applied to retrieval (explicit or derived); "
+            "null when none resolved."
+        ),
     )

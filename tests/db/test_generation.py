@@ -13,7 +13,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
 
 def _load_golden_generation() -> dict:
-    return json.loads((FIXTURES_DIR / "golden_generation.json").read_text(encoding="utf-8"))
+    return json.loads(
+        (FIXTURES_DIR / "golden_generation.json").read_text(encoding="utf-8")
+    )
 
 
 class ScriptedGenerator(Generator):
@@ -53,8 +55,8 @@ def test_golden_generation_cases(retrieval_qdrant):
         returned_job_ids = [source["job_id"] for source in body["sources"]]
         for job_id in case["expected_source_job_ids"]:
             assert job_id in returned_job_ids, (
-                f"Golden generation case '{case['id']}' missed expected source job {job_id}. "
-                f"Returned: {returned_job_ids}"
+                f"Golden generation case '{case['id']}' missed expected "
+                f"source job {job_id}. Returned: {returned_job_ids}"
             )
         assert len(scripted.calls) == 1, case["id"]
         context, question = scripted.calls[0]

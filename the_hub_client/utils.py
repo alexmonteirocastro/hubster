@@ -1,5 +1,3 @@
-from typing import List, Set
-
 from markdownify import markdownify as md
 
 from the_hub_client.http import hub_get
@@ -73,7 +71,7 @@ def get_full_jobs_picture_by_country(country: CountryCode) -> JobOpenings:
     )
 
 
-def get_job_ids_per_page_per_country(page: int, country: CountryCode) -> List[str]:
+def get_job_ids_per_page_per_country(page: int, country: CountryCode) -> list[str]:
     response = hub_get(
         f"{HUB_BASE_URL}{JOB_LISTINGS_ENDPOINT_ROUTE}?page={page}&countryCode={country.value}"
     )
@@ -93,7 +91,10 @@ def scrape_job_offer_by_id(job_id: str) -> JobOpportunity:
 
     if job_salary_type == "range":
         salary_range = single_job_response.get("salaryRange", "N/A")
-        salary = f"Ranging from {salary_range.get("min", None)} to {salary_range.get("max", None)}"
+        salary = (
+            f"Ranging from {salary_range.get('min', None)} "
+            f"to {salary_range.get('max', None)}"
+        )
 
     return JobOpportunity(
         job_id=job_id,
@@ -115,8 +116,8 @@ def scrape_job_offer_by_id(job_id: str) -> JobOpportunity:
 
 def get_all_job_ids_per_country(
     country: CountryCode, pages_in_country: int, total_jobs_in_country: int
-) -> List[str]:
-    all_job_ids_in_country: List[str] = list()
+) -> list[str]:
+    all_job_ids_in_country: list[str] = list()
 
     for page in range(1, pages_in_country + 1):
         print(
@@ -124,7 +125,8 @@ def get_all_job_ids_per_country(
         )
         job_ids_in_page = get_job_ids_per_page_per_country(page=page, country=country)
         print(
-            f"So far we have found {len(all_job_ids_in_country)} job ids out of {total_jobs_in_country}"
+            f"So far we have found {len(all_job_ids_in_country)} job ids "
+            f"out of {total_jobs_in_country}"
         )
         print(f"Page {page} has {len(job_ids_in_page)} job ids")
         for job_id in job_ids_in_page:
@@ -136,9 +138,9 @@ def get_all_job_ids_per_country(
     return all_job_ids_in_country
 
 
-def get_all_live_job_ids() -> Set[str]:
+def get_all_live_job_ids() -> set[str]:
     """Collect unique job IDs currently listed on The Hub (listing API only)."""
-    live_job_ids: Set[str] = set()
+    live_job_ids: set[str] = set()
 
     for country in CountryCode:
         country_overall = get_number_of_jobs_and_pages_by_country(country)

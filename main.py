@@ -22,7 +22,8 @@ def main(mode: str = "sync"):
                 "QDRANT_DEV_COLLECTION_NAME must differ from QDRANT_COLLECTION_NAME."
             )
         print(
-            f"Seeding dev retrieval collection '{settings.qdrant_dev_collection_name}'..."
+            "Seeding dev retrieval collection "
+            f"'{settings.qdrant_dev_collection_name}'..."
         )
         seed_dev_qdrant_db(client, settings.qdrant_dev_collection_name)
         collection_name = settings.qdrant_dev_collection_name
@@ -38,11 +39,10 @@ def main(mode: str = "sync"):
                 "QDRANT_DEV_COLLECTION_NAME must differ from QDRANT_COLLECTION_NAME."
             )
         print(
-            f"Backfilling job_title/company on '{settings.qdrant_dev_collection_name}'..."
+            "Backfilling job_title/company on "
+            f"'{settings.qdrant_dev_collection_name}'..."
         )
-        backfill_job_title_company_metadata(
-            client, settings.qdrant_dev_collection_name
-        )
+        backfill_job_title_company_metadata(client, settings.qdrant_dev_collection_name)
         return
     else:
         create_collection(client, settings.qdrant_collection_name)

@@ -21,7 +21,9 @@ RETRIEVAL_ENV_DEFAULTS = {
 
 
 def _load_golden_jobs() -> list[JobOpportunity]:
-    payload = json.loads((FIXTURES_DIR / "golden_jobs.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (FIXTURES_DIR / "golden_jobs.json").read_text(encoding="utf-8")
+    )
     return [JobOpportunity.model_validate(job) for job in payload]
 
 
@@ -52,7 +54,8 @@ def retrieval_qdrant():
 
         if not _qdrant_is_reachable():
             pytest.skip(
-                f"Qdrant not reachable at {settings.qdrant_url} — start Qdrant to run retrieval tests."
+                f"Qdrant not reachable at {settings.qdrant_url} — "
+                "start Qdrant to run retrieval tests."
             )
 
         client = get_qdrant_client()

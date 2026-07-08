@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock
 
-from the_hub_client.models import CountryCode, JobOpportunity, JobsAndPages
-
 from db.db_utils import INGEST_BATCH_SIZE, seed_dev_qdrant_db
+from the_hub_client.models import CountryCode, JobOpportunity, JobsAndPages
 
 
 def _sample_job(job_id: str) -> JobOpportunity:

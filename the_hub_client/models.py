@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class CountryCode(str, Enum):
+class CountryCode(StrEnum):
     DENMARK = "DK"
     SWEDEN = "SE"
     NORWAY = "NO"
