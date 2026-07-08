@@ -35,7 +35,8 @@ def backfill_job_title_company_metadata(
     db_client: QdrantClient,
     collection_name: str,
 ) -> tuple[int, int, int]:
-    """One-time migration: add job_title/company payload fields to indexed points.
+    """One-time migration: add job_title/company payload fields to
+    already-indexed points.
 
     Idempotent — safe to re-run after an interrupted run. Skips points that already
     have both fields. Connection errors during the Hub API fallback abort the run

@@ -155,7 +155,8 @@ def resolve_chat_filters(
     explicit_country: CountryCode | None = None,
     explicit_remote: bool | None = None,
 ) -> ExtractedFilters:
-    """Apply explicit caller filters over question-text extraction (ADR-0002 D3)."""
+    """Apply explicit caller filters over question-text extraction
+    (ADR-0002 Decision 3)."""
     extracted = extract_filters_from_question(question)
     return ExtractedFilters(
         country=explicit_country if explicit_country is not None else extracted.country,

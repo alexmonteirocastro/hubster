@@ -35,6 +35,7 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
+# Starting set: correctness + import order + modernization; expand deliberately.
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
