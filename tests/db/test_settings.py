@@ -68,6 +68,8 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.qdrant_dev_collection_name == "JOBS_DEV"
     assert settings.embedding_model == "BAAI/bge-small-en-v1.5"
     assert settings.cors_allowed_origins == ["http://localhost:5173"]
+    assert settings.chat_question_max_length == 500
+    assert settings.chat_rate_limit == "10/minute"
 
 
 def test_get_settings_parses_cors_allowed_origins(monkeypatch):

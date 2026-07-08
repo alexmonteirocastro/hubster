@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app, create_app
+from tests.mock_settings import api_settings_namespace
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
 
@@ -110,9 +111,7 @@ def test_jobs_search_rejects_invalid_country():
 def test_jobs_search_passes_country_filter_to_query(
     mock_get_settings, mock_get_qdrant_client, mock_query_jobs
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -133,9 +132,7 @@ def test_jobs_search_passes_country_filter_to_query(
 def test_jobs_search_passes_remote_filter_to_query(
     mock_get_settings, mock_get_qdrant_client, mock_query_jobs
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -156,9 +153,7 @@ def test_jobs_search_passes_remote_filter_to_query(
 def test_jobs_search_returns_clean_json(
     mock_get_settings, mock_get_qdrant_client, mock_query_jobs
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -208,9 +203,7 @@ def test_jobs_search_returns_clean_json(
 def test_jobs_search_omits_job_title_and_company_when_not_in_payload(
     mock_get_settings, mock_get_qdrant_client, mock_query_jobs
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -243,9 +236,7 @@ def test_jobs_search_omits_job_title_and_company_when_not_in_payload(
 def test_jobs_search_returns_503_when_qdrant_is_unavailable(
     mock_get_settings, mock_get_qdrant_client
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
 
     response = client.get("/jobs/search", params={"q": "python developer"})
 
@@ -270,9 +261,7 @@ def test_jobs_search_returns_500_when_configuration_is_invalid(mock_get_settings
 def test_jobs_search_returns_502_when_payload_is_missing_fields(
     mock_get_settings, mock_get_qdrant_client, mock_query_jobs
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[

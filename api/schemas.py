@@ -24,7 +24,9 @@ class JobSearchResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(
-        ..., min_length=1, description="Natural-language question about jobs"
+        ...,
+        min_length=1,
+        description="Natural-language question about jobs",
     )
     limit: int = Field(
         default=5,
