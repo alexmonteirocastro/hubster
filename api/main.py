@@ -38,9 +38,7 @@ def _chat_rate_limit() -> str:
     return get_settings().chat_rate_limit
 
 
-def _chat_rate_limit_exceeded_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+def _chat_rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, RateLimitExceeded):
         raise exc
     return JSONResponse(

@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from llm_client.base import Generator
+from tests.mock_settings import api_settings_namespace
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -39,7 +39,7 @@ def test_golden_generation_cases(retrieval_qdrant):
             f"Mocked grounded answer mentioning {case['mock_answer_substring']}."
         )
         scripted = ScriptedGenerator(answer=expected_answer)
-        settings = SimpleNamespace(qdrant_collection_name=collection_name)
+        settings = api_settings_namespace(qdrant_collection_name=collection_name)
 
         with (
             patch("api.main.get_qdrant_client", return_value=client),

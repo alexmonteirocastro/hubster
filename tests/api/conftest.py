@@ -1,18 +1,6 @@
-from types import SimpleNamespace
-
 import pytest
 
 from db.settings import get_qdrant_client, get_settings
-
-
-def api_settings_namespace(**overrides):
-    defaults = {
-        "qdrant_collection_name": "JOBS_ON_THE_HUB",
-        "chat_question_max_length": 500,
-        "chat_rate_limit": "10/minute",
-    }
-    defaults.update(overrides)
-    return SimpleNamespace(**defaults)
 
 
 @pytest.fixture(autouse=True)
