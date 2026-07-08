@@ -67,6 +67,7 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv") -> None:
 
                     if not job_data:
                         print(f"❌ Failed to scrape job_id: {job_id}")
+                        continue
 
                     jobs_batch.append(job_data)
 

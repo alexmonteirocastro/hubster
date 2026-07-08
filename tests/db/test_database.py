@@ -3,8 +3,14 @@ from unittest.mock import MagicMock, call
 
 import pytest
 from qdrant_client import models
+from qdrant_client.http.models import Distance, VectorParams
 
-from db.database import create_collection, load_jobs_into_qdrant, query_jobs_in_qdrant
+from db.database import (
+    create_collection,
+    get_vector_name,
+    load_jobs_into_qdrant,
+    query_jobs_in_qdrant,
+)
 from the_hub_client.models import CountryCode, JobOpportunity
 
 
@@ -74,6 +80,46 @@ def test_load_jobs_into_qdrant_raises_when_parallel_lists_length_mismatch(
 
     with pytest.raises(ValueError, match="zip"):
         load_jobs_into_qdrant(db_client, "JOBS_DEV", [_sample_job()])
+
+
+def _collection_with_vectors(vectors: object) -> SimpleNamespace:
+    return SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors=vectors))
+    )
+
+
+def test_get_vector_name_raises_when_vectors_is_none():
+    db_client = MagicMock()
+    db_client.get_collection.return_value = _collection_with_vectors(None)
+
+    with pytest.raises(ValueError, match="no vector config"):
+        get_vector_name(db_client, "JOBS_DEV")
+
+
+def test_get_vector_name_returns_named_vector_key():
+    db_client = MagicMock()
+    db_client.get_collection.return_value = _collection_with_vectors(
+        {"fast-bge-small-en": object()}
+    )
+
+    assert get_vector_name(db_client, "JOBS_DEV") == "fast-bge-small-en"
+
+
+def test_get_vector_name_returns_empty_string_for_unnamed_vector():
+    db_client = MagicMock()
+    db_client.get_collection.return_value = _collection_with_vectors(
+        VectorParams(size=384, distance=Distance.COSINE)
+    )
+
+    assert get_vector_name(db_client, "JOBS_DEV") == ""
+
+
+def test_get_vector_name_raises_on_unsupported_vector_config():
+    db_client = MagicMock()
+    db_client.get_collection.return_value = _collection_with_vectors("unexpected")
+
+    with pytest.raises(ValueError, match="Unsupported vector config"):
+        get_vector_name(db_client, "JOBS_DEV")
 
 
 def test_create_collection_creates_payload_indexes_for_country_and_remote():
