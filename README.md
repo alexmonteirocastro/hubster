@@ -6,6 +6,8 @@ Hubster ingests job listings from [The Hub](https://thehub.io/) via their public
 
 Use it to build job-discovery tools, RAG chatbots, or analytics over Nordic/European startup job markets.
 
+For the product vision — problem, roadmap, and trust bar for `/chat` — see [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md).
+
 ## Features
 
 - **API-based ingestion** — fetches paginated job listings and full job details from The Hub REST API
