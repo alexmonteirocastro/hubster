@@ -198,6 +198,36 @@ def test_chat_skips_generation_when_retrieval_is_empty(
     assert body["answer"] == NO_MATCHING_JOBS_MESSAGE
     assert body["generated"] is False
     assert body["sources"] == []
+    assert body["applied_country"] is None
+    assert body["applied_remote"] is None
+    assert fake_generator.calls == []
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_applied_filters_present_when_no_usable_points(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+    response = client.post(
+        "/chat",
+        json={"question": "backend roles?", "country": "FI", "remote": True},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is False
+    assert body["sources"] == []
+    assert body["applied_country"] == "FI"
+    assert body["applied_remote"] is True
     assert fake_generator.calls == []
 
 
@@ -427,6 +457,87 @@ def test_chat_applied_filters_are_null_when_nothing_resolved(
     body = response.json()
     assert body["applied_country"] is None
     assert body["applied_remote"] is None
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_applied_remote_reflects_derived_value_on_success_path(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "job-123",
+                    "job_role": "Backend Developer",
+                    "document_text": "Remote backend role in Copenhagen",
+                },
+            )
+        ]
+    )
+
+    response = client.post(
+        "/chat",
+        json={"question": "remote backend python roles in Denmark"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is True
+    assert body["applied_country"] == "DK"
+    assert body["applied_remote"] is True
+    mock_query_jobs.assert_called_once()
+    _, kwargs = mock_query_jobs.call_args
+    assert kwargs["country"] == CountryCode.DENMARK
+    assert kwargs["remote"] is True
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_applied_remote_reflects_explicit_value_over_question_text(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "job-123",
+                    "job_role": "Backend Developer",
+                    "document_text": "On-site backend role in Copenhagen",
+                },
+            )
+        ]
+    )
+
+    response = client.post(
+        "/chat",
+        json={"question": "remote backend roles in Denmark", "remote": False},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is True
+    assert body["applied_country"] == "DK"
+    assert body["applied_remote"] is False
+    mock_query_jobs.assert_called_once()
+    _, kwargs = mock_query_jobs.call_args
+    assert kwargs["remote"] is False
 
 
 @patch("api.main.query_jobs_in_qdrant")
