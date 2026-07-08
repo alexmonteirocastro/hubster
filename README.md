@@ -66,6 +66,16 @@ uv run mypy .
 
 The frontend uses `oxlint` — run `npm run lint` from `frontend/`.
 
+Optional local pre-commit hooks (Ruff on backend paths, oxlint on frontend — mypy stays CI-only):
+
+```bash
+uv sync --group dev
+cd frontend && npm install && cd ..
+uv run pre-commit install
+```
+
+Run hooks manually with `uv run pre-commit run --all-files`.
+
 ## Where to go next
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — environment variables, ingestion, local development, project layout, data model, Hub API client, and testing
