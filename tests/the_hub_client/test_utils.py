@@ -5,12 +5,20 @@ from the_hub_client.utils import (
     HUB_BASE_URL,
     JOB_LISTINGS_ENDPOINT_ROUTE,
     SINGLE_JOB_ENDPOINT_ROUTE,
+    build_job_url,
     get_all_job_ids_per_country,
     get_full_jobs_picture_by_country,
     get_job_ids_per_page_per_country,
     get_number_of_jobs_and_pages_by_country,
     scrape_job_offer_by_id,
 )
+
+
+def test_build_job_url():
+    assert (
+        build_job_url("6a2ab4ce37958933f39ce11b")
+        == "https://thehub.io/jobs/6a2ab4ce37958933f39ce11b"
+    )
 
 
 @responses.activate

@@ -86,6 +86,7 @@ def test_chat_returns_grounded_answer_via_injected_generator(
         {
             "score": 0.88,
             "job_id": "job-123",
+            "job_url": "https://thehub.io/jobs/job-123",
             "job_role": "Backend Developer",
             "document_text": "Job Title: Backend Developer\nCompany: Acme",
             "job_title": "Backend Developer",
