@@ -19,9 +19,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=2.2.0",
+    "pre-commit>=4.6.0",
     "pytest>=8.0",
     "responses>=0.25.0",
-    "ruff>=0.15.20",
+    "ruff>=0.15.20",  # keep in sync with rev in .pre-commit-config.yaml
     "types-requests>=2.33.0.20260518",
 ]
 

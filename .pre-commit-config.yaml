@@ -1,0 +1,23 @@
+# Local commit-time checks (opt-in: uv run pre-commit install).
+# CI enforces ruff check, ruff format --check, and mypy (unit-test job).
+# Pre-commit runs ruff (auto-fix locally) and oxlint only; mypy stays out
+# of commit-time hooks because it is too slow.
+
+repos:
+  # Keep rev in sync with the ruff version in pyproject.toml / uv.lock.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-check
+        name: ruff check
+      - id: ruff-format
+        name: ruff format
+
+  - repo: local
+    hooks:
+      - id: oxlint
+        name: oxlint (frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/
+        pass_filenames: false
