@@ -56,11 +56,12 @@ Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when 
 
 ## Dev workflow
 
-Backend lint and format (requires `uv sync --group dev`):
+Backend lint, format, and type check (requires `uv sync --group dev`):
 
 ```bash
 uv run ruff check .
 uv run ruff format .
+uv run mypy .
 ```
 
 The frontend uses `oxlint` — run `npm run lint` from `frontend/`.

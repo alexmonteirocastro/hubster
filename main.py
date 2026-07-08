@@ -12,7 +12,7 @@ from db import (
 )
 
 
-def main(mode: str = "sync"):
+def main(mode: str = "sync") -> None:
     settings = get_settings()
     client = get_qdrant_client()
 
@@ -69,10 +69,11 @@ def main(mode: str = "sync"):
     )
 
     for hit in response.points:
-        print(f"Score: {hit.score:.4f} | Job: {hit.payload.get('job_role')}")
+        payload = hit.payload or {}
+        print(f"Score: {hit.score:.4f} | Job: {payload.get('job_role')}")
 
 
-def _run_main():
+def _run_main() -> None:
     parser = argparse.ArgumentParser(description="Ingest Hub jobs into Qdrant")
     parser.add_argument(
         "--seed",

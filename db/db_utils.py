@@ -1,4 +1,5 @@
 import csv
+from typing import Any
 
 from qdrant_client import QdrantClient
 
@@ -34,7 +35,7 @@ def _chunk_job_ids(job_ids: list[str], chunk_size: int) -> list[list[str]]:
     return [job_ids[i : i + chunk_size] for i in range(0, len(job_ids), chunk_size)]
 
 
-def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
+def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv") -> None:
     headers = list(JobOpportunity.model_fields.keys())
 
     with open(f"tmp/{file_name}", "w", encoding="utf-8") as f:
@@ -55,7 +56,7 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
             page_chunks = _chunk_job_ids(all_job_ids, country_overall.jobs_per_page)
 
             for page, job_ids_in_page in enumerate(page_chunks, start=1):
-                jobs_batch = []
+                jobs_batch: list[dict[str, Any]] = []
                 print(
                     f"Scraping page {page} out of {country_overall.number_of_pages} "
                     f"for jobs in {country.name}"
@@ -66,10 +67,11 @@ def load_jobs_data_into_csv(file_name: str = "jobs_preview.csv"):
 
                     if not job_data:
                         print(f"❌ Failed to scrape job_id: {job_id}")
+                        continue
 
-                    jobs_batch.append(job_data)  # type: ignore
+                    jobs_batch.append(job_data)
 
-                writer.writerows(jobs_batch)  # type: ignore
+                writer.writerows(jobs_batch)
 
     print("Al jobs loaded")
 
@@ -81,7 +83,7 @@ def seed_dev_qdrant_db(
     country: CountryCode = CountryCode.DENMARK,
     max_pages: int = 2,
     reset: bool = True,
-):
+) -> None:
     """Seed a small country sample for retrieval evaluation (fast reload)."""
     if reset:
         drop_db(db_client, collection_name)
@@ -117,7 +119,7 @@ def seed_dev_qdrant_db(
     print(f"Points (jobs) in dev collection: {info.points_count}")
 
 
-def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
+def seed_qdrant_db(db_client: QdrantClient, collection_name: str) -> None:
     """Fetches jobs and loads them into the vector DB"""
     for country in CountryCode:
         country_overall = get_number_of_jobs_and_pages_by_country(country)
@@ -141,8 +143,9 @@ def seed_qdrant_db(db_client: QdrantClient, collection_name: str):
 
                     if not job_data:
                         print(f"❌ Failed to scrape job_id: {job_id}")
+                        continue
 
-                    jobs_batch.append(job_data)  # type: ignore
+                    jobs_batch.append(job_data)
                 except Exception as e:
                     print(f"  ⚠️ Error scraping {job_id}: {e}")
 
@@ -179,7 +182,7 @@ def _scrape_jobs(job_ids: list[str]) -> list[JobOpportunity]:
     return jobs
 
 
-def sync_qdrant_db(db_client: QdrantClient, collection_name: str):
+def sync_qdrant_db(db_client: QdrantClient, collection_name: str) -> None:
     """Reconcile Qdrant with live Hub listings: add new jobs, remove delisted ones."""
     print("Fetching live job IDs from The Hub (listing API only)...")
     live_job_ids = get_all_live_job_ids()

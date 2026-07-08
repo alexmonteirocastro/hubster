@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -208,9 +210,12 @@ def chat(
         )
 
     sources = [
-        _payload_to_source(point.score, point.payload) for point in usable_points
+        _payload_to_source(point.score, cast(dict[str, Any], point.payload))
+        for point in usable_points
     ]
-    context = format_job_context([point.payload for point in usable_points])
+    context = format_job_context(
+        [cast(dict[str, Any], point.payload) for point in usable_points]
+    )
 
     try:
         answer = generator.generate(context=context, question=request.question)
