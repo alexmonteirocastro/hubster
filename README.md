@@ -56,28 +56,11 @@ Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when 
 
 ## Dev workflow
 
-Backend lint, format, and type check (requires `uv sync --group dev`):
-
-```bash
-uv run ruff check .
-uv run ruff format .
-uv run mypy .
-```
-
-The frontend uses `oxlint` — run `npm run lint` from `frontend/`.
-
-Optional local pre-commit hooks (Ruff on backend paths, oxlint on frontend — mypy stays CI-only):
-
-```bash
-uv sync --group dev
-cd frontend && npm install && cd ..
-uv run pre-commit install
-```
-
-Run hooks manually with `uv run pre-commit run --all-files`.
+See [CONTRIBUTING.md](CONTRIBUTING.md#code-quality) for Ruff, mypy, oxlint, pre-commit setup, and the CI checks to run locally before opening a PR.
 
 ## Where to go next
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) — code-quality tooling and dev checks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — environment variables, ingestion, local development, project layout, data model, Hub API client, and testing
 - [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — problem, roadmap, and trust bar for `/chat`
 - [docs/adr/](docs/adr/) — architectural decision records
