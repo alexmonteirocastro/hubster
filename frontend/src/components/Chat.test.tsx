@@ -41,6 +41,7 @@ const successResponse: ChatResponse = {
     {
       score: 0.91,
       job_id: "job-1",
+      job_url: "https://thehub.io/jobs/job-1",
       job_role: "Backend Developer",
       job_title: "Senior Backend Developer",
       company: "Acme",
@@ -67,6 +68,7 @@ const declinedWithSourcesResponse: ChatResponse = {
     {
       score: 0.42,
       job_id: "job-wrong",
+      job_url: "https://thehub.io/jobs/job-wrong",
       job_role: "Backend Developer",
       job_title: "Backend Developer",
       company: "Wrong Co",
@@ -100,7 +102,9 @@ describe("Chat", () => {
 
     expect(await screen.findByText("backend roles in Denmark")).toBeInTheDocument();
     expect(screen.getByText(successResponse.answer)).toBeInTheDocument();
-    expect(screen.getByText(/senior backend developer/i)).toBeInTheDocument();
+    const jobLink = screen.getByRole("link", { name: /senior backend developer/i });
+    expect(jobLink).toHaveAttribute("href", "https://thehub.io/jobs/job-1");
+    expect(jobLink).toHaveAttribute("target", "_blank");
     expect(screen.getByText(/score 0\.91/i)).toBeInTheDocument();
     expect(mockPostChat).toHaveBeenCalledWith({ question: "backend roles in Denmark" });
   });

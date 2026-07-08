@@ -184,6 +184,7 @@ def test_jobs_search_returns_clean_json(
     assert body["results"][0] == {
         "score": 0.91,
         "job_id": "job-123",
+        "job_url": "https://thehub.io/jobs/job-123",
         "job_title": "Backend Developer",
         "company": "Acme",
         "job_role": "Backend Developer",

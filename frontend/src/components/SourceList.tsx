@@ -21,7 +21,14 @@ export function SourceList({ sources }: SourceListProps) {
         {sources.map((source) => (
           <li key={source.job_id} className={styles.item}>
             <div className={styles.header}>
-              <span className={styles.role}>{source.job_title ?? source.job_role}</span>
+              <a
+                className={styles.role}
+                href={source.job_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {source.job_title ?? source.job_role}
+              </a>
               <span className={styles.score}>score {formatScore(source.score)}</span>
             </div>
             {(source.company || source.location || source.country) && (

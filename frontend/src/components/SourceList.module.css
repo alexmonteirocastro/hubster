@@ -37,7 +37,13 @@
 .role {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-ink);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.role:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
 }
 
 .score {

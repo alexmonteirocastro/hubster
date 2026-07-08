@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from the_hub_client.models import CountryCode
+from the_hub_client.utils import build_job_url
 
 
 class JobSearchHit(BaseModel):
@@ -15,6 +16,11 @@ class JobSearchHit(BaseModel):
     salary_type: str
     salary: str
     equity: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def job_url(self) -> str:
+        return build_job_url(self.job_id)
 
 
 class JobSearchResponse(BaseModel):
@@ -55,6 +61,11 @@ class ChatSource(BaseModel):
     company: str | None = None
     country: str | None = None
     location: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def job_url(self) -> str:
+        return build_job_url(self.job_id)
 
 
 class ChatResponse(BaseModel):

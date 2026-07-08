@@ -10,6 +10,7 @@ export interface ChatRequest {
 export interface ChatSource {
   score: number;
   job_id: string;
+  job_url: string;
   job_role: string;
   document_text: string;
   job_title?: string | null;

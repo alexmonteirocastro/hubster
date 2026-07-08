@@ -12,6 +12,12 @@ from the_hub_client.models import (
 HUB_BASE_URL = "https://thehub.io"
 JOB_LISTINGS_ENDPOINT_ROUTE = "/api/v2/jobs"
 SINGLE_JOB_ENDPOINT_ROUTE = "/api/jobs/single/"
+JOB_PAGE_PATH = "/jobs"
+
+
+def build_job_url(job_url_identifier: str) -> str:
+    """Public listing URL for a Hub job (verified: /jobs/{id}, not slug-based)."""
+    return f"{HUB_BASE_URL}{JOB_PAGE_PATH}/{job_url_identifier}"
 
 
 def get_number_of_jobs_and_pages_by_country(country: CountryCode) -> JobsAndPages:
