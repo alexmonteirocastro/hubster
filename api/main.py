@@ -194,6 +194,8 @@ def chat(
             answer=NO_MATCHING_JOBS_MESSAGE,
             sources=[],
             generated=False,
+            applied_country=filters.country,
+            applied_remote=filters.remote,
         )
 
     sources = [_payload_to_source(point.score, point.payload) for point in usable_points]
@@ -222,4 +224,6 @@ def chat(
         answer=answer,
         sources=sources,
         generated=True,
+        applied_country=filters.country,
+        applied_remote=filters.remote,
     )

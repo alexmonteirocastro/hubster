@@ -355,6 +355,9 @@ def test_chat_passes_country_filter_to_query(
     mock_query_jobs.assert_called_once()
     _, kwargs = mock_query_jobs.call_args
     assert kwargs["country"] == CountryCode.DENMARK
+    body = response.json()
+    assert body["applied_country"] == "DK"
+    assert body["applied_remote"] is None
 
 
 @patch("api.main.query_jobs_in_qdrant")
@@ -381,6 +384,49 @@ def test_chat_derives_country_filter_from_question_when_not_explicit(
     _, kwargs = mock_query_jobs.call_args
     assert kwargs["country"] == CountryCode.SWEDEN
     assert kwargs["remote"] is None
+    body = response.json()
+    assert body["applied_country"] == "SE"
+    assert body["applied_remote"] is None
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_applied_filters_are_null_when_nothing_resolved(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = SimpleNamespace(qdrant_collection_name="JOBS_ON_THE_HUB")
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "job-123",
+                    "job_role": "Backend Developer",
+                    "document_text": "Backend role",
+                },
+            )
+        ]
+    )
+
+    response = client.post(
+        "/chat",
+        json={"question": "any backend roles?"},
+    )
+
+    assert response.status_code == 200
+    mock_query_jobs.assert_called_once()
+    _, kwargs = mock_query_jobs.call_args
+    assert kwargs["country"] is None
+    assert kwargs["remote"] is None
+    body = response.json()
+    assert body["applied_country"] is None
+    assert body["applied_remote"] is None
 
 
 @patch("api.main.query_jobs_in_qdrant")
@@ -406,6 +452,9 @@ def test_chat_derives_filters_for_backend_denmark_transcript(
     mock_query_jobs.assert_called_once()
     _, kwargs = mock_query_jobs.call_args
     assert kwargs["country"] == CountryCode.DENMARK
+    body = response.json()
+    assert body["applied_country"] == "DK"
+    assert body["applied_remote"] is None
 
 
 @patch("api.main.query_jobs_in_qdrant")
@@ -434,3 +483,6 @@ def test_chat_explicit_country_overrides_extracted_country(
     mock_query_jobs.assert_called_once()
     _, kwargs = mock_query_jobs.call_args
     assert kwargs["country"] == CountryCode.DENMARK
+    body = response.json()
+    assert body["applied_country"] == "DK"
+    assert body["applied_remote"] is None

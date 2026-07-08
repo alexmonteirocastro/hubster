@@ -77,6 +77,7 @@ They differ on every axis that matters for how carefully each should be designed
 - If evidence emerges that keyword/tech-stack precision (as distinct from the country-matching problem this ADR addresses) is a real, separate retrieval-quality issue, evaluate a sparse/BM25 vector addition as its own ADR — do not retroactively fold it into this one, since it requires a full reindex and is a materially bigger decision.
 - If additional structured filters beyond `Country`/`Remote` become clearly motivated by real usage (e.g. salary range, seniority), extend Decision 1's mechanism rather than building a parallel one.
 - If `CountryCode.EUROPE` (`EU`) does not map to a real per-job `location.country` value in Hub's API (see ALE-82), revisit whether EU filtering should be supported, removed, or implemented differently — silent zero-result behavior is indistinguishable from "no jobs found."
+- **Addressed (ALE-84):** `ChatResponse` now exposes `applied_country`/`applied_remote` reflecting whatever `resolve_chat_filters` actually resolved for the request. This does not close the alias-table completeness gap itself — unusual phrasings still fall back to unfiltered retrieval — but it lets callers distinguish "filtered retrieval returned these sources" from "no filter was resolved, sources are unscoped top-k." Frontend rendering decisions based on these fields remain for ADR-0004 to revisit.
 
 ## Alternatives considered and rejected (for now)
 
