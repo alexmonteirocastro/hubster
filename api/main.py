@@ -49,6 +49,19 @@ def _chat_rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+def _question_too_long_detail(question: str, max_length: int) -> list[dict[str, Any]]:
+    """Pydantic-compatible 422 detail for configurable max question length."""
+    return [
+        {
+            "type": "string_too_long",
+            "loc": ["body", "question"],
+            "msg": f"String should have at most {max_length} characters",
+            "input": question,
+            "ctx": {"max_length": max_length},
+        }
+    ]
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     application = FastAPI(
@@ -203,9 +216,9 @@ def chat(
         if len(chat_request.question) > settings.chat_question_max_length:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"question must be at most {settings.chat_question_max_length} "
-                    "characters long"
+                detail=_question_too_long_detail(
+                    chat_request.question,
+                    settings.chat_question_max_length,
                 ),
             )
         client = get_qdrant_client()

@@ -386,7 +386,16 @@ def test_chat_rejects_oversized_question(
     response = client.post("/chat", json={"question": "x" * 6})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "question must be at most 5 characters long"
+    detail = response.json()["detail"]
+    assert detail == [
+        {
+            "type": "string_too_long",
+            "loc": ["body", "question"],
+            "msg": "String should have at most 5 characters",
+            "input": "x" * 6,
+            "ctx": {"max_length": 5},
+        }
+    ]
     mock_query_jobs.assert_not_called()
     assert fake_generator.calls == []
 

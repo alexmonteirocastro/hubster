@@ -64,6 +64,30 @@ describe("postChat", () => {
     });
   });
 
+  it("parses Pydantic-style 422 validation detail arrays", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: () =>
+        Promise.resolve({
+          detail: [
+            {
+              type: "string_too_long",
+              loc: ["body", "question"],
+              msg: "String should have at most 5 characters",
+              input: "toolong",
+              ctx: { max_length: 5 },
+            },
+          ],
+        }),
+    } as Response);
+
+    await expect(postChat({ question: "toolong" })).rejects.toMatchObject({
+      status: 422,
+      message: "String should have at most 5 characters",
+    });
+  });
+
   it("prefers API error detail over the default message on 429", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,

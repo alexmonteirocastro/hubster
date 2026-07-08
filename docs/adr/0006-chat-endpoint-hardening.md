@@ -17,12 +17,15 @@ ALE-87 closes both gaps on `POST /chat` only — the endpoint with external gene
 
 ## Decision 1: Enforce question length in the endpoint, not in the Pydantic schema
 
-**Decision:** Check `len(chat_request.question)` against `settings.chat_question_max_length` at the start of the `chat()` handler and return **422** before retrieval or generation. `ChatRequest` remains a pure data contract (`min_length=1` only).
+**Decision:** Check `len(chat_request.question)` against `settings.chat_question_max_length` at the start of the `chat()` handler and return **422** before retrieval or generation. `ChatRequest` remains a pure data contract with **`min_length=1` only** in the schema.
 
 **Rationale:**
 
 - The max length is configurable via `CHAT_QUESTION_MAX_LENGTH`; validating in the handler uses the same `get_settings()` the endpoint already depends on, without coupling `api/schemas.py` to global app config.
 - A Pydantic `field_validator` calling `get_settings()` made schema construction depend on a fully-populated `Settings()` and caused test mocks on `api.main.get_settings` to silently not apply to validation — a layering bug, not a feature.
+- **`min_length=1` stays in the schema; `max_length` does not.** The lower bound is a static invariant (an empty question is never valid) and belongs in the self-documenting OpenAPI contract. The upper bound is environment-configurable and enforced in the handler so `CHAT_QUESTION_MAX_LENGTH` overrides work without redefining the model.
+- **Oversized questions consume rate-limit budget.** `@limiter.limit` wraps the whole handler; slowapi checks the bucket before the function body runs. Rejecting over-length questions inside the handler (rather than at Pydantic parse time) means abusive payloads count against `CHAT_RATE_LIMIT` — intentional for a hardening ticket, not a free probe path.
+- **422 `detail` uses Pydantic's list shape** (`string_too_long`, `loc: ["body", "question"]`, etc.) so manual and schema-driven validation errors share the same response contract.
 
 **Trade-off:** The generated OpenAPI schema does not show a static `maxLength` on `question`. The bound is documented in the README and `.env.example` instead.
 
