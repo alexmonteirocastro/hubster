@@ -28,7 +28,7 @@ cd frontend && npm install
 | Ruff | Format | `uv run ruff format .` |
 | [mypy](https://mypy.readthedocs.io/) | Static type check | `uv run mypy .` |
 
-Configuration lives in `pyproject.toml`. Ruff targets Python 3.12 with rules `E`, `F`, `I`, `UP`, `B`. mypy uses `disallow_untyped_defs` and excludes `tests/` and `frontend/`.
+Configuration lives in `pyproject.toml` — see `[tool.ruff]` and `[tool.mypy]` there for the exact rule set and type-check options.
 
 Apply Ruff fixes and formatting locally:
 
