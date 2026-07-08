@@ -105,6 +105,7 @@ describe("Chat", () => {
     const jobLink = screen.getByRole("link", { name: /senior backend developer/i });
     expect(jobLink).toHaveAttribute("href", "https://thehub.io/jobs/job-1");
     expect(jobLink).toHaveAttribute("target", "_blank");
+    expect(jobLink).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByText(/score 0\.91/i)).toBeInTheDocument();
     expect(mockPostChat).toHaveBeenCalledWith({ question: "backend roles in Denmark" });
   });
