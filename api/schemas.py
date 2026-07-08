@@ -58,3 +58,11 @@ class ChatResponse(BaseModel):
     generated: bool = Field(
         description="True when the answer was produced by the Generator; False for deterministic fallback."
     )
+    applied_country: CountryCode | None = Field(
+        default=None,
+        description="Country filter actually applied to retrieval (explicit or derived); null when none resolved.",
+    )
+    applied_remote: bool | None = Field(
+        default=None,
+        description="Remote filter actually applied to retrieval (explicit or derived); null when none resolved.",
+    )

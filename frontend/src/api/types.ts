@@ -23,4 +23,6 @@ export interface ChatResponse {
   answer: string;
   sources: ChatSource[];
   generated: boolean;
+  applied_country?: CountryCode | null;
+  applied_remote?: boolean | null;
 }
