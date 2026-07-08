@@ -5,6 +5,11 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from qdrant_client.http.exceptions import UnexpectedResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from api.schemas import (
     ChatRequest,
@@ -26,12 +31,35 @@ from llm_client.exceptions import (
 from the_hub_client import CountryCode, get_full_jobs_picture_by_country
 from the_hub_client.models import JobOpenings
 
+limiter = Limiter(key_func=get_remote_address)
+
+
+def _chat_rate_limit() -> str:
+    return get_settings().chat_rate_limit
+
+
+def _chat_rate_limit_exceeded_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    if not isinstance(exc, RateLimitExceeded):
+        raise exc
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Too many chat requests. Please wait before trying again.",
+        },
+    )
+
 
 def create_app() -> FastAPI:
     settings = get_settings()
     application = FastAPI(
         title="Hubster API",
         description="JSON API for job stats and semantic search over The Hub listings.",
+    )
+    application.state.limiter = limiter
+    application.add_exception_handler(
+        RateLimitExceeded, _chat_rate_limit_exceeded_handler
     )
     application.add_middleware(
         CORSMiddleware,
@@ -166,23 +194,25 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
 
 
 @app.post("/chat", response_model=ChatResponse)
+@limiter.limit(_chat_rate_limit)
 def chat(
-    request: ChatRequest,
+    request: Request,
+    chat_request: ChatRequest,
     generator: Generator = Depends(get_chat_generator),
 ) -> ChatResponse:
     try:
         settings = get_settings()
         client = get_qdrant_client()
         filters = resolve_chat_filters(
-            request.question,
-            explicit_country=request.country,
-            explicit_remote=request.remote,
+            chat_request.question,
+            explicit_country=chat_request.country,
+            explicit_remote=chat_request.remote,
         )
         search_results = query_jobs_in_qdrant(
             db_client=client,
             collection_name=settings.qdrant_collection_name,
-            query_text=request.question,
-            limit=request.limit,
+            query_text=chat_request.question,
+            limit=chat_request.limit,
             country=filters.country,
             remote=filters.remote,
         )
@@ -201,7 +231,7 @@ def chat(
 
     if not usable_points:
         return ChatResponse(
-            question=request.question,
+            question=chat_request.question,
             answer=NO_MATCHING_JOBS_MESSAGE,
             sources=[],
             generated=False,
@@ -218,7 +248,7 @@ def chat(
     )
 
     try:
-        answer = generator.generate(context=context, question=request.question)
+        answer = generator.generate(context=context, question=chat_request.question)
     except GenerationRateLimitError as exc:
         raise HTTPException(
             status_code=503,
@@ -236,7 +266,7 @@ def chat(
         ) from exc
 
     return ChatResponse(
-        question=request.question,
+        question=chat_request.question,
         answer=answer,
         sources=sources,
         generated=True,

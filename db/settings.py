@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from qdrant_client import QdrantClient
 
 _DEFAULT_CORS_ORIGINS = ("http://localhost:5173",)
+DEFAULT_CHAT_QUESTION_MAX_LENGTH = 500
+DEFAULT_CHAT_RATE_LIMIT = "10/minute"
 
 
 class Settings(BaseSettings):
@@ -25,6 +27,23 @@ class Settings(BaseSettings):
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: list(_DEFAULT_CORS_ORIGINS),
         validation_alias="CORS_ALLOWED_ORIGINS",
+    )
+    chat_question_max_length: int = Field(
+        default=DEFAULT_CHAT_QUESTION_MAX_LENGTH,
+        ge=1,
+        validation_alias="CHAT_QUESTION_MAX_LENGTH",
+        description=(
+            "Maximum characters accepted in POST /chat question text "
+            "(bounds token cost and latency before retrieval or generation)."
+        ),
+    )
+    chat_rate_limit: str = Field(
+        default=DEFAULT_CHAT_RATE_LIMIT,
+        validation_alias="CHAT_RATE_LIMIT",
+        description=(
+            "Per-client rate limit for POST /chat only (slowapi/limits string, "
+            "e.g. 10/minute). In-memory, single-process."
+        ),
     )
 
     @field_validator("cors_allowed_origins", mode="before")

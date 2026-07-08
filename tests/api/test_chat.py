@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app, get_chat_generator
+from db.settings import get_settings
 from llm_client.base import Generator
 from llm_client.context import NO_MATCHING_JOBS_MESSAGE
 from llm_client.exceptions import GenerationRateLimitError, GenerationUnavailableError
+from tests.api.conftest import api_settings_namespace
 from the_hub_client.models import CountryCode
 
 client = TestClient(app)
@@ -54,9 +56,7 @@ def test_chat_returns_grounded_answer_via_injected_generator(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -110,9 +110,7 @@ def test_chat_omits_job_title_and_company_when_not_in_payload(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -145,9 +143,7 @@ def test_chat_sources_match_context_passed_to_generator(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -195,9 +191,7 @@ def test_chat_skips_generation_when_retrieval_is_empty(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -223,9 +217,7 @@ def test_chat_applied_filters_present_when_no_usable_points(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -253,9 +245,7 @@ def test_chat_skips_generation_when_document_text_is_missing(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -290,9 +280,7 @@ def test_chat_returns_503_when_generator_is_rate_limited(
             raise GenerationRateLimitError("rate limited")
 
     app.dependency_overrides[get_chat_generator] = lambda: RateLimitedGenerator()
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -326,9 +314,7 @@ def test_chat_returns_502_when_generator_is_unavailable(
             raise GenerationUnavailableError("upstream down")
 
     app.dependency_overrides[get_chat_generator] = lambda: UnavailableGenerator()
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -354,9 +340,7 @@ def test_chat_returns_502_when_generator_is_unavailable(
 def test_chat_returns_503_when_qdrant_is_unavailable(
     mock_get_settings, mock_get_qdrant_client
 ):
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
 
     response = client.post("/chat", json={"question": "backend roles?"})
 
@@ -381,6 +365,75 @@ def test_chat_rejects_empty_question():
     assert response.status_code == 422
 
 
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_rejects_oversized_question(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_qdrant_client.return_value = object()
+
+    response = client.post("/chat", json={"question": "x" * 501})
+
+    assert response.status_code == 422
+    mock_query_jobs.assert_not_called()
+    assert fake_generator.calls == []
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_returns_429_when_rate_limit_exceeded(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+    monkeypatch,
+):
+    monkeypatch.setenv("CHAT_RATE_LIMIT", "1/minute")
+    get_settings.cache_clear()
+
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace(
+        chat_rate_limit="1/minute",
+    )
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+    first = client.post("/chat", json={"question": "backend roles?"})
+    second = client.post("/chat", json={"question": "frontend roles?"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"] == (
+        "Too many chat requests. Please wait before trying again."
+    )
+    mock_query_jobs.assert_called_once()
+    assert fake_generator.calls == []
+
+
+def test_jobs_search_unaffected_by_chat_rate_limit():
+    with (
+        patch("api.main.get_settings") as mock_get_settings,
+        patch("api.main.get_qdrant_client") as mock_get_qdrant_client,
+        patch("api.main.query_jobs_in_qdrant") as mock_query_jobs,
+    ):
+        mock_get_settings.return_value = api_settings_namespace()
+        mock_get_qdrant_client.return_value = object()
+        mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+        for _ in range(3):
+            response = client.get("/jobs/search", params={"q": "backend"})
+
+        assert response.status_code == 200
+        assert mock_query_jobs.call_count == 3
+
+
 def test_chat_rejects_invalid_country():
     response = client.post(
         "/chat", json={"question": "backend roles?", "country": "XX"}
@@ -399,9 +452,7 @@ def test_chat_passes_country_filter_to_query(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -429,9 +480,7 @@ def test_chat_derives_country_filter_from_question_when_not_explicit(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -460,9 +509,7 @@ def test_chat_applied_filters_are_null_when_nothing_resolved(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -502,9 +549,7 @@ def test_chat_applied_remote_reflects_derived_value_on_success_path(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -545,9 +590,7 @@ def test_chat_applied_remote_reflects_explicit_value_over_question_text(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(
         points=[
@@ -587,9 +630,7 @@ def test_chat_derives_filters_for_backend_denmark_transcript(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 
@@ -617,9 +658,7 @@ def test_chat_explicit_country_overrides_extracted_country(
 ):
     fake_generator = FakeGenerator()
     app.dependency_overrides[get_chat_generator] = lambda: fake_generator
-    mock_get_settings.return_value = SimpleNamespace(
-        qdrant_collection_name="JOBS_ON_THE_HUB"
-    )
+    mock_get_settings.return_value = api_settings_namespace()
     mock_get_qdrant_client.return_value = object()
     mock_query_jobs.return_value = SimpleNamespace(points=[])
 

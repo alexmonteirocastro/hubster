@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from db.settings import get_settings
 from the_hub_client.models import CountryCode
 
 
@@ -24,8 +25,20 @@ class JobSearchResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(
-        ..., min_length=1, description="Natural-language question about jobs"
+        ...,
+        min_length=1,
+        description="Natural-language question about jobs",
     )
+
+    @field_validator("question")
+    @classmethod
+    def question_within_max_length(cls, value: str) -> str:
+        max_length = get_settings().chat_question_max_length
+        if len(value) > max_length:
+            raise ValueError(
+                f"question must be at most {max_length} characters long"
+            )
+        return value
     limit: int = Field(
         default=5,
         ge=1,
