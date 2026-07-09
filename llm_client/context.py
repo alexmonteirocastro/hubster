@@ -69,5 +69,26 @@ def filter_usable_points(points: Sequence[_RetrievalPoint]) -> list[_RetrievalPo
     ]
 
 
+def filter_points_by_min_score(
+    points: Sequence[_RetrievalPoint],
+    min_score: float,
+) -> list[_RetrievalPoint]:
+    """Return retrieval hits at or above the similarity floor."""
+    return [point for point in points if point.score >= min_score]
+
+
+def filter_chat_retrieval_points(
+    points: Sequence[_RetrievalPoint],
+    *,
+    min_score: float,
+) -> list[_RetrievalPoint]:
+    """Return /chat hits with usable document_text and sufficient similarity.
+
+    Applied after top-k retrieval (see ADR-0002 Decision 4): hits below
+    min_score are omitted from sources and generation context.
+    """
+    return filter_points_by_min_score(filter_usable_points(points), min_score)
+
+
 def has_sufficient_retrieval(points: Sequence[_RetrievalPoint]) -> bool:
     return bool(filter_usable_points(points))

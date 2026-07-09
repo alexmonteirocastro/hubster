@@ -22,7 +22,7 @@ from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from db.query_filters import resolve_chat_filters
 from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator, get_llm_settings
 from llm_client.base import Generator
-from llm_client.context import filter_usable_points, format_job_context
+from llm_client.context import filter_chat_retrieval_points, format_job_context
 from llm_client.exceptions import (
     GenerationConfigurationError,
     GenerationRateLimitError,
@@ -246,7 +246,10 @@ def chat(
             detail="Qdrant is unavailable.",
         ) from exc
 
-    usable_points = filter_usable_points(search_results.points)
+    usable_points = filter_chat_retrieval_points(
+        search_results.points,
+        min_score=settings.chat_source_min_score,
+    )
 
     if not usable_points:
         return ChatResponse(

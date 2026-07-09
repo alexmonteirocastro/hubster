@@ -2,7 +2,7 @@
 
 * **Status:** Accepted
 * **Date:** 2026-07-06
-* **Related:** ALE-76 (generation layer), ALE-77 (filter mechanism), ALE-78 (filter derivation), ADR-0001 (LLM provider strategy)
+* **Related:** ALE-76 (generation layer), ALE-77 (filter mechanism), ALE-78 (filter derivation), ALE-84 (expose applied filters), ALE-91 (similarity-score floor for `/chat` sources), ADR-0001 (LLM provider strategy)
 
 ## Context
 
@@ -55,6 +55,18 @@ They differ on every axis that matters for how carefully each should be designed
 
 **Implementation (ALE-78):** Option A shipped as `db/query_filters.py` — a dependency-free alias/keyword lookup (`extract_filters_from_question`) wired into `/chat` via `resolve_chat_filters`. Option B (LLM-based extraction) remains a revisit trigger only. The module lives under `db/` (not a top-level package) because it sits on the retrieval path between the API and `query_jobs_in_qdrant`, even though it has no Qdrant dependency. Extraction rules: remote handling uses false phrases (`remote=False`), neutral idioms (`remote=None`, no filter), then positive phrases/keywords with a negation-window check; when multiple distinct countries appear in one question, no country filter is applied rather than picking the earliest match.
 
+## Decision 4: `/chat` similarity-score floor suppresses weak retrieval hits — hard cutoff, not labeling (ALE-91)
+
+**Decision:** After Qdrant returns top-k hits for `POST /chat`, omit any hit whose cosine similarity score is below `CHAT_SOURCE_MIN_SCORE` (default **0.70**, calibrated against `tests/fixtures/golden_queries.json`) from both `ChatResponse.sources` and the generation context. Use a **hard cutoff** (omit entirely) rather than a `loose_match` boolean or label in the payload. `/jobs/search` is unchanged — raw scores remain visible there for demo/search use (ADR-0004 Decision 4).
+
+**Rationale:**
+
+- Qdrant always returns top-k from a non-empty collection even when matches are semantically weak. A real `/chat` transcript ("Python developer jobs in Sweden?") showed unrelated jobs at scores 0.55–0.63 in `sources` while the generator correctly declined to fabricate (ADR-0001 Decision 3). The UX problem is misleading citations, not generation quality alone.
+- ALE-91 left the mechanism open ("hard cutoff vs. label"). Hard omission was chosen because it composes cleanly with the anti-hallucination guarantee: no new "loose match" state for the frontend or generator to reason about. Complements ALE-84's `applied_country`/`applied_remote` (which answers "was a filter applied?") — this answers "how relevant is this specific hit?"
+- **0.70 is calibrated, not guessed.** Against the retrieval golden set (`BAAI/bge-small-en-v1.5`), expected hits score ≥ ~0.71; observed noise sits in ~0.55–0.63. `test_golden_queries_expected_jobs_survive_chat_source_min_score` turns that into a regression guard.
+
+**Post-retrieval filtering vs. query-time `score_threshold`:** The floor is applied in Python after `query_jobs_in_qdrant` returns `limit` hits — not via Qdrant's native `score_threshold` param. This is accepted at prototype scale: relevant hits ranked below `limit` are never fetched, and responses may return fewer than `limit` sources when weak hits are dropped. Pushing the threshold into the Qdrant query (consistent with Decision 1's "filter during traversal" pattern) is a documented revisit trigger, not a blocker for the current traffic.
+
 ## Consequences
 
 **Positive:**
@@ -70,6 +82,7 @@ They differ on every axis that matters for how carefully each should be designed
 - Remote negation detection uses a fixed phrase list and a small negation-window heuristic (not general NLP). Phrasings outside the closed sets may be missed entirely (falls back to no filter). Phrases listed in `REMOTE_NEUTRAL_PHRASES` degrade safely to no filter (`remote=None`); phrases not yet in that table may still be misread as `remote=False` by the negation window — the same kind of closed-set gap as alias completeness above, not a different failure mode.
 - Filtering only on `Country`/`Remote` for now; other potentially useful filters (salary range, seniority) are not addressed and aren't motivated by current evidence.
 - Keyword-precision issues within the embedded text (e.g. specific tech-stack terms) are *not* addressed by this ADR and may still exist — see Revisit triggers.
+- **`/chat` may return fewer sources than `limit`.** The similarity floor (Decision 4) runs after top-k retrieval; weak hits are dropped from `sources` and generation context. A relevant job ranked below `limit` is never fetched — an inherent post-retrieval trade-off, not a bug.
 
 ## Revisit triggers
 
@@ -78,6 +91,7 @@ They differ on every axis that matters for how carefully each should be designed
 - If additional structured filters beyond `Country`/`Remote` become clearly motivated by real usage (e.g. salary range, seniority), extend Decision 1's mechanism rather than building a parallel one.
 - If `CountryCode.EUROPE` (`EU`) does not map to a real per-job `location.country` value in Hub's API (see ALE-82), revisit whether EU filtering should be supported, removed, or implemented differently — silent zero-result behavior is indistinguishable from "no jobs found."
 - **Addressed (ALE-84):** `ChatResponse` now exposes `applied_country`/`applied_remote` reflecting whatever `resolve_chat_filters` actually resolved for the request. This does not close the alias-table completeness gap itself — unusual phrasings still fall back to unfiltered retrieval — but it lets callers distinguish "filtered retrieval returned these sources" from "no filter was resolved, sources are unscoped top-k." Frontend rendering decisions based on these fields remain for ADR-0004 to revisit.
+- **Addressed (ALE-91):** `POST /chat` applies `CHAT_SOURCE_MIN_SCORE` (default 0.70) to drop weak similarity hits from `sources` and generation context. If evidence shows the post-retrieval floor is dropping too many relevant hits or wasting Qdrant bandwidth on points that are immediately discarded, revisit pushing `score_threshold` into `query_jobs_in_qdrant` for `/chat` only.
 
 ## Alternatives considered and rejected (for now)
 
