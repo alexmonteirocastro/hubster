@@ -147,6 +147,38 @@ def test_chat_strips_ungrounded_markdown_links_from_answer(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
+def test_chat_returns_502_when_payload_is_missing_job_url_identifier(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_role": "Backend Developer",
+                    "Country": "Denmark",
+                    "location": "Copenhagen",
+                    "document_text": "Job Title: Backend Developer\nCompany: Acme",
+                },
+            )
+        ]
+    )
+
+    response = client.post("/chat", json={"question": "any backend roles?"})
+
+    assert response.status_code == 502
+    assert (
+        response.json()["detail"] == "Search result payload is missing required fields."
+    )
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
 def test_chat_omits_job_title_and_company_when_not_in_payload(
     mock_get_settings,
     mock_get_qdrant_client,

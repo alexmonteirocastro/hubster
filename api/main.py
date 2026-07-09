@@ -25,7 +25,6 @@ from llm_client.base import Generator
 from llm_client.context import (
     filter_chat_retrieval_points,
     format_job_context,
-    job_url_identifier_from_payload,
     sanitize_answer_links,
 )
 from llm_client.exceptions import (
@@ -194,7 +193,7 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
     try:
         return ChatSource(
             score=score,
-            job_id=job_url_identifier_from_payload(payload),
+            job_id=payload["job_url_identifier"],
             job_role=payload["job_role"],
             document_text=payload.get("document_text", ""),
             job_title=payload.get("job_title"),

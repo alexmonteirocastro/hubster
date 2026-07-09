@@ -73,7 +73,11 @@ def sanitize_answer_links(answer: str, allowed_urls: set[str]) -> str:
 
 
 def job_url_identifier_from_payload(payload: dict[str, Any]) -> str:
-    """Normalize job_url_identifier for context blocks and ChatSource.job_id."""
+    """Normalize job_url_identifier for generation context blocks only.
+
+    Used by format_job_context so a malformed prompt block does not crash
+    generation. ChatSource construction keeps a strict payload subscript instead.
+    """
     job_id = payload.get("job_url_identifier", "unknown")
     if not isinstance(job_id, str) or not job_id.strip():
         return "unknown"
