@@ -337,7 +337,10 @@ def test_chat_skips_generation_when_only_weak_similarity_matches(
         ]
     )
 
-    response = client.post("/chat", json={"question": "python developer jobs in Sweden?"})
+    response = client.post(
+        "/chat",
+        json={"question": "python developer jobs in Sweden?"},
+    )
 
     assert response.status_code == 200
     body = response.json()
