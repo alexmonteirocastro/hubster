@@ -1,7 +1,15 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import type { ChatSource } from "../api/types";
 import { SourceList } from "./SourceList";
 import styles from "./ChatMessage.module.css";
+
+const assistantMarkdownComponents: Components = {
+  a: ({ href, children, ...props }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+      {children}
+    </a>
+  ),
+};
 
 export interface DisplayMessage {
   id: string;
@@ -28,7 +36,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <p className={styles.content}>{message.content}</p>
       ) : (
         <div className={styles.contentMarkdown}>
-          <ReactMarkdown disallowedElements={["img"]}>{message.content}</ReactMarkdown>
+          <ReactMarkdown
+            disallowedElements={["img"]}
+            components={assistantMarkdownComponents}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
       )}
       {!isUser && message.generated === false && !message.isError && (

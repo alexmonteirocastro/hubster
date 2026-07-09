@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from llm_client.base import Generator
+from llm_client.context import find_ungrounded_link_urls
 from tests.mock_settings import api_settings_namespace
+from the_hub_client.utils import build_job_url
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -36,8 +38,11 @@ def test_golden_generation_cases(retrieval_qdrant):
     api_client = TestClient(app)
 
     for case in golden_set["cases"]:
+        primary_job_id = case["expected_source_job_ids"][0]
+        primary_job_url = build_job_url(primary_job_id)
         expected_answer = (
-            f"Mocked grounded answer mentioning {case['mock_answer_substring']}."
+            f"Mocked grounded answer mentioning {case['mock_answer_substring']}: "
+            f"[{case['mock_answer_substring']} role]({primary_job_url})."
         )
         scripted = ScriptedGenerator(answer=expected_answer)
         settings = api_settings_namespace(qdrant_collection_name=collection_name)
@@ -68,3 +73,5 @@ def test_golden_generation_cases(retrieval_qdrant):
         context, question = scripted.calls[0]
         assert question == case["query"], case["id"]
         assert context.strip(), case["id"]
+        allowed_urls = {source["job_url"] for source in body["sources"]}
+        assert find_ungrounded_link_urls(body["answer"], allowed_urls) == [], case["id"]
