@@ -78,7 +78,10 @@ Gemini is the default `/chat` provider. For local development and stress testing
 brew install ollama
 ollama pull qwen3:8b
 ollama serve
+ollama run qwen3:8b   # preload model into memory (avoids cold-start timeout on first /chat)
 ```
+
+Ollama loads the model lazily on the first request. On CPU, that load can take long enough that the first `/chat` call hits the 60s client timeout and returns 502. Running `ollama run qwen3:8b` once after `ollama serve` preloads the model so subsequent requests only pay inference latency.
 
 In `.env`:
 

@@ -49,6 +49,9 @@ class OllamaGenerator(Generator):
                 "Ollama returned an invalid response."
             ) from exc
 
-        if not text or not text.strip():
+        if not isinstance(text, str):
+            raise GenerationUnavailableError("Ollama returned an invalid response.")
+        stripped = text.strip()
+        if not stripped:
             raise GenerationUnavailableError("Model returned an empty response.")
-        return text.strip()
+        return stripped
