@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import type { ChatSource } from "../api/types";
 import { SourceList } from "./SourceList";
 import styles from "./ChatMessage.module.css";
@@ -23,7 +24,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
       className={`${styles.message} ${isUser ? styles.user : styles.assistant} ${message.isError ? styles.error : ""}`}
       aria-label={isUser ? "Your message" : "Assistant reply"}
     >
-      <p className={styles.content}>{message.content}</p>
+      {isUser ? (
+        <p className={styles.content}>{message.content}</p>
+      ) : (
+        <div className={styles.contentMarkdown}>
+          <ReactMarkdown disallowedElements={["img"]}>{message.content}</ReactMarkdown>
+        </div>
+      )}
       {!isUser && message.generated === false && !message.isError && (
         <p className={styles.badge}>No matching jobs — answer from search, not generated</p>
       )}

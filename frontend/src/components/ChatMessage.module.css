@@ -26,6 +26,33 @@
   word-break: break-word;
 }
 
+.contentMarkdown {
+  margin: 0;
+  word-break: break-word;
+}
+
+.contentMarkdown :global(p) {
+  margin: 0;
+}
+
+.contentMarkdown :global(p + p) {
+  margin-top: var(--space-3);
+}
+
+.contentMarkdown :global(strong) {
+  font-weight: 600;
+}
+
+.contentMarkdown :global(ul),
+.contentMarkdown :global(ol) {
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-5);
+}
+
+.contentMarkdown :global(li + li) {
+  margin-top: var(--space-2);
+}
+
 .badge {
   margin: var(--space-2) 0 0;
   padding: var(--space-1) var(--space-2);
