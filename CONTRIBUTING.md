@@ -68,6 +68,29 @@ uv run pre-commit run --all-files
 
 Hook configuration lives in `.pre-commit-config.yaml`. Keep the Ruff pre-commit `rev` in sync with the `ruff` version in `pyproject.toml` / `uv.lock`.
 
+## Local Ollama generation (optional)
+
+Gemini is the default `/chat` provider. For local development and stress testing without consuming Gemini free-tier quota, you can run generation through a local [Ollama](https://ollama.com/) instance instead. See [ADR-0007](docs/adr/0007-local-generation-fallback-ollama-qwen3.md).
+
+**Setup:**
+
+```bash
+brew install ollama
+ollama pull qwen3:8b
+ollama serve
+```
+
+In `.env`:
+
+```bash
+LLM_PROVIDER=ollama
+# GEMINI_API_KEY is not required when using Ollama
+```
+
+Defaults: `OLLAMA_BASE_URL=http://localhost:11434/v1`, `OLLAMA_MODEL=qwen3:8b`, `OLLAMA_TIMEOUT_SECONDS=60.0`.
+
+On CPU-only hardware, expect roughly **5–12 tokens/second** — slower than Gemini's cloud API, but sufficient for exercising the RAG pipeline locally.
+
 ### CI summary
 
 | Job | Code-quality checks |
