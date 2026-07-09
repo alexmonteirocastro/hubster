@@ -68,20 +68,39 @@ uv run pre-commit run --all-files
 
 Hook configuration lives in `.pre-commit-config.yaml`. Keep the Ruff pre-commit `rev` in sync with the `ruff` version in `pyproject.toml` / `uv.lock`.
 
-## Local Ollama generation (optional)
+## Local generation for development
 
-Gemini is the default `/chat` provider. For local development and stress testing without consuming Gemini free-tier quota, you can run generation through a local [Ollama](https://ollama.com/) instance instead. See [ADR-0007](docs/adr/0007-local-generation-fallback-ollama-qwen3.md).
+Gemini is the default `/chat` provider. For local work without Gemini quota or Ollama latency, use the options below. See [ADR-0007](docs/adr/0007-local-generation-fallback-ollama-qwen3.md) for the Ollama design.
+
+### Stub generator (recommended for UI testing)
+
+Instant, deterministic answers with markdown (`**bold**`, bullet lists). No network, no quota, no CPU wait — ideal for exercising the chat UI and frontend tests against a live API.
+
+In `.env`:
+
+```bash
+LLM_PROVIDER=stub
+# GEMINI_API_KEY is not required
+```
+
+Restart the API after changing provider: `docker compose up -d --force-recreate api`.
+
+### Local Ollama generation (optional)
+
+For exercising the full RAG pipeline with a real local model when Gemini is rate-limited.
 
 **Setup:**
 
 ```bash
 brew install ollama
-ollama pull qwen3:8b
+ollama pull qwen3:4b
 ollama serve
-ollama run qwen3:8b   # preload model into memory (avoids cold-start timeout on first /chat)
+ollama run qwen3:4b   # preload model into memory (avoids cold-start on first /chat)
 ```
 
-Ollama loads the model lazily on the first request. On CPU, that load can take long enough that the first `/chat` call hits the 60s client timeout and returns 502. Running `ollama run qwen3:8b` once after `ollama serve` preloads the model so subsequent requests only pay inference latency.
+Ollama loads the model lazily on the first request. On CPU, that load can add significant latency to the first `/chat` call. Running `ollama run qwen3:4b` once after `ollama serve` preloads the model so subsequent requests only pay inference time.
+
+When the API runs in Docker and Ollama on the host, set `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in `.env`.
 
 In `.env`:
 
@@ -90,9 +109,11 @@ LLM_PROVIDER=ollama
 # GEMINI_API_KEY is not required when using Ollama
 ```
 
-Defaults: `OLLAMA_BASE_URL=http://localhost:11434/v1`, `OLLAMA_MODEL=qwen3:8b`, `OLLAMA_TIMEOUT_SECONDS=60.0`.
+Defaults: `OLLAMA_BASE_URL=http://localhost:11434/v1`, `OLLAMA_MODEL=qwen3:4b`, `OLLAMA_TIMEOUT_SECONDS=60.0`, `OLLAMA_MAX_CHARS_PER_JOB=1200`, `OLLAMA_NUM_PREDICT=256`.
 
-On CPU-only hardware, expect roughly **5–12 tokens/second** — slower than Gemini's cloud API, but sufficient for exercising the RAG pipeline locally.
+The Ollama adapter calls Ollama's native `/api/chat` endpoint with streaming and `think: false` (see ADR-0007 implementation notes). Job context sent to Ollama is truncated per listing to keep prompts within CPU-friendly limits.
+
+On CPU-only hardware, expect roughly **3–12 tokens/second** — slower than Gemini's cloud API. Use `LLM_PROVIDER=stub` for rapid UI iteration; use Ollama when you specifically need to validate end-to-end generation quality.
 
 ### CI summary
 

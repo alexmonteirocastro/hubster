@@ -27,14 +27,31 @@ def build_generation_prompt(context: str, question: str) -> str:
     )
 
 
-def format_job_context(payloads: list[dict[str, Any]]) -> str:
+def truncate_text(text: str, max_chars: int) -> str:
+    """Truncate text to max_chars, appending an ellipsis when shortened."""
+    stripped = text.strip()
+    if max_chars <= 0 or len(stripped) <= max_chars:
+        return stripped
+    if max_chars <= 1:
+        return "…"
+    return stripped[: max_chars - 1].rstrip() + "…"
+
+
+def format_job_context(
+    payloads: list[dict[str, Any]],
+    *,
+    max_chars_per_job: int | None = None,
+) -> str:
     blocks: list[str] = []
     for index, payload in enumerate(payloads, start=1):
         document_text = payload.get("document_text", "")
         if not isinstance(document_text, str) or not document_text.strip():
             continue
+        body = document_text.strip()
+        if max_chars_per_job is not None:
+            body = truncate_text(body, max_chars_per_job)
         job_id = payload.get("job_url_identifier", "unknown")
-        blocks.append(f"--- Job {index} (id: {job_id}) ---\n{document_text.strip()}")
+        blocks.append(f"--- Job {index} (id: {job_id}) ---\n{body}")
     return "\n\n".join(blocks)
 
 

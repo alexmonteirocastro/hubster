@@ -9,6 +9,7 @@ from llm_client.context import (
     filter_usable_points,
     format_job_context,
     has_sufficient_retrieval,
+    truncate_text,
 )
 from llm_client.settings import LLMSettings, get_llm_settings
 
@@ -57,6 +58,23 @@ def test_format_job_context_skips_empty_document_text():
     assert "job-1" in context
     assert "Backend role in Copenhagen" in context
     assert "job-2" not in context
+
+
+def test_format_job_context_truncates_long_document_text():
+    long_text = "A" * 2000
+    context = format_job_context(
+        [{"job_url_identifier": "job-1", "document_text": long_text}],
+        max_chars_per_job=1200,
+    )
+
+    assert "…" in context
+    assert long_text not in context
+    assert "A" * 1199 in context
+
+
+def test_truncate_text_returns_original_when_under_limit():
+    assert truncate_text("hello", 10) == "hello"
+    assert truncate_text("  hello  ", 10) == "hello"
 
 
 def test_filter_usable_points_excludes_empty_document_text():
@@ -126,7 +144,7 @@ def test_get_llm_settings_allows_missing_gemini_key_for_ollama(monkeypatch, tmp_
     settings = get_llm_settings()
 
     assert settings.llm_provider == "ollama"
-    assert settings.ollama_model == "qwen3:8b"
+    assert settings.ollama_model == "qwen3:4b"
 
 
 def test_get_generator_returns_ollama_when_configured(monkeypatch, tmp_path):
@@ -138,6 +156,17 @@ def test_get_generator_returns_ollama_when_configured(monkeypatch, tmp_path):
     from llm_client.ollama import OllamaGenerator
 
     assert isinstance(get_generator(), OllamaGenerator)
+
+
+def test_get_generator_returns_stub_when_configured(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+
+    from llm_client import get_generator
+    from llm_client.stub import StubGenerator
+
+    assert isinstance(get_generator(), StubGenerator)
 
 
 def test_get_generator_returns_gemini_by_default(monkeypatch, tmp_path):

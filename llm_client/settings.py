@@ -12,7 +12,7 @@ class LLMSettings(BaseSettings):
         extra="ignore",
     )
 
-    llm_provider: Literal["gemini", "ollama"] = Field(
+    llm_provider: Literal["gemini", "ollama", "stub"] = Field(
         default="gemini",
         validation_alias="LLM_PROVIDER",
     )
@@ -29,12 +29,20 @@ class LLMSettings(BaseSettings):
         validation_alias="OLLAMA_BASE_URL",
     )
     ollama_model: str = Field(
-        default="qwen3:8b",
+        default="qwen3:4b",
         validation_alias="OLLAMA_MODEL",
     )
     ollama_timeout_seconds: float = Field(
         default=60.0,
         validation_alias="OLLAMA_TIMEOUT_SECONDS",
+    )
+    ollama_max_chars_per_job: int = Field(
+        default=1200,
+        validation_alias="OLLAMA_MAX_CHARS_PER_JOB",
+    )
+    ollama_num_predict: int = Field(
+        default=256,
+        validation_alias="OLLAMA_NUM_PREDICT",
     )
 
     @field_validator("gemini_model", "ollama_base_url", "ollama_model")
@@ -54,6 +62,13 @@ class LLMSettings(BaseSettings):
     @field_validator("backoff_factor", "timeout_seconds", "ollama_timeout_seconds")
     @classmethod
     def must_be_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("must be > 0")
+        return value
+
+    @field_validator("ollama_max_chars_per_job", "ollama_num_predict")
+    @classmethod
+    def must_be_positive_int(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("must be > 0")
         return value

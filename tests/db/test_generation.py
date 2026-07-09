@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -40,10 +41,15 @@ def test_golden_generation_cases(retrieval_qdrant):
         )
         scripted = ScriptedGenerator(answer=expected_answer)
         settings = api_settings_namespace(qdrant_collection_name=collection_name)
+        llm_settings = SimpleNamespace(
+            llm_provider="gemini",
+            ollama_max_chars_per_job=1200,
+        )
 
         with (
             patch("api.main.get_qdrant_client", return_value=client),
             patch("api.main.get_settings", return_value=settings),
+            patch("api.main.get_llm_settings", return_value=llm_settings),
             patch("api.main.get_generator", return_value=scripted),
         ):
             response = api_client.post("/chat", json={"question": case["query"]})
