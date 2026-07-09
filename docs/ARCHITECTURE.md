@@ -27,15 +27,17 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
 | `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
-| `LLM_PROVIDER` | Generation backend for `/chat`: `gemini` (default) or `ollama` | `gemini` |
+| `LLM_PROVIDER` | Generation backend for `/chat`: `gemini` (default), `ollama`, or `stub` | `gemini` |
 | `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when `LLM_PROVIDER=gemini`) | *(set in `.env`)* |
 | `GEMINI_MODEL` | Generation model name (optional) | `gemini-2.5-flash` |
 | `GEMINI_MAX_RETRIES` | Retries for transient Gemini API failures (optional) | `3` |
 | `GEMINI_BACKOFF_FACTOR` | Exponential backoff base between Gemini retries (optional) | `1.0` |
 | `GEMINI_TIMEOUT` | Per-request timeout in seconds for Gemini (optional) | `30.0` |
-| `OLLAMA_BASE_URL` | Ollama OpenAI-compatible API base URL (when `LLM_PROVIDER=ollama`) | `http://localhost:11434/v1` |
-| `OLLAMA_MODEL` | Ollama model tag (when `LLM_PROVIDER=ollama`) | `qwen3:8b` |
+| `OLLAMA_BASE_URL` | Ollama API base URL (when `LLM_PROVIDER=ollama`); `/v1` suffix is stripped for native `/api/chat` calls | `http://localhost:11434/v1` |
+| `OLLAMA_MODEL` | Ollama model tag (when `LLM_PROVIDER=ollama`) | `qwen3:4b` |
 | `OLLAMA_TIMEOUT_SECONDS` | Per-request timeout in seconds for Ollama (optional; higher than Gemini for CPU inference) | `60.0` |
+| `OLLAMA_MAX_CHARS_PER_JOB` | Max characters of `document_text` per job sent to Ollama (optional) | `1200` |
+| `OLLAMA_NUM_PREDICT` | Max output tokens per Ollama request (optional) | `256` |
 | `HUB_CLIENT_MAX_RETRIES` | Retries for transient Hub API failures (optional) | `3` |
 | `HUB_CLIENT_BACKOFF_FACTOR` | Exponential backoff base between retries (optional) | `1.0` |
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
@@ -148,15 +150,15 @@ Open [http://localhost:5173](http://localhost:5173) for the chat UI. Job stats a
 
 ### REST API (local details)
 
-Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`; set `LLM_PROVIDER=ollama` for local Ollama generation instead (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-ollama-generation-optional)).
+Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`. Alternatives: `LLM_PROVIDER=stub` for instant deterministic answers (UI testing), or `LLM_PROVIDER=ollama` for local generation (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-generation-for-development)).
 
-**CORS:** Browser clients (e.g. a Vite dev server on port 5173) must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated). The default allows `http://localhost:5173`. Override in `.env` when the frontend runs on a different origin.
+**CORS:** With the default `/api` same-origin proxy (see Frontend section below), the browser does not make cross-origin requests in normal Docker or Vite dev use. If you override `VITE_API_BASE_URL` to a full URL (e.g. `http://localhost:8000`), the frontend origin must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated; default `http://localhost:5173`).
 
 > Any frontend should call this API rather than Qdrant or The Hub directly. The React chat UI is scoped in [ADR-0004](adr/0004-frontend-architecture-for-chat-interface.md); its visual language (colors, spacing, type, radii) is defined in [ADR-0005](adr/0005-visual-design-tokens-for-the-chat-ui.md). Design tokens live in `frontend/src/styles/tokens.css` as CSS custom properties — components reference tokens by name, never hardcoded hex or px values.
 
 ### Frontend (React chat UI)
 
-A minimal React + Vite + TypeScript app in `frontend/` that calls `POST /chat` through a typed API client (`frontend/src/api/client.ts`). Each question is sent independently — conversation history is display-only and never sent to the API (see [ADR-0004](adr/0004-frontend-architecture-for-chat-interface.md)).
+A minimal React + Vite + TypeScript app in `frontend/` that calls `POST /chat` through a typed API client (`frontend/src/api/client.ts`). Each question is sent independently — conversation history is display-only and never sent to the API (see [ADR-0004](adr/0004-frontend-architecture-for-chat-interface.md)). Assistant answers render as markdown via `react-markdown` (bold, lists, paragraphs); user messages stay plain text.
 
 Run locally:
 
@@ -167,9 +169,9 @@ npm install
 npm run dev
 ```
 
-`VITE_API_BASE_URL` defaults to `http://localhost:8000` — the browser-reachable URL, not a Docker-internal hostname.
+`VITE_API_BASE_URL` defaults to `/api` — a same-origin path proxied to the backend. In Vite dev (`npm run dev`), the proxy target is `http://localhost:8000`. In Docker, the frontend nginx container proxies `/api/` to the `api` service with a 10-minute read timeout (long enough for slow local Ollama runs).
 
-Via Docker Compose, the `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL` (default `http://localhost:8000` via `.env` or Compose) so the browser (on the host) can reach the published API port.
+Via Docker Compose, the `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=/api` by default (override via `.env` or Compose build args).
 
 **Frontend tests**
 
@@ -178,7 +180,7 @@ cd frontend
 npm test
 ```
 
-Component tests (Vitest + React Testing Library) cover message rendering, loading state, network/HTTP error handling, and the `generated: false` no-match case. They run in CI via the `frontend-test` job in `.github/workflows/test.yml`.
+Component tests (Vitest + React Testing Library) cover message rendering (including markdown in assistant replies), loading state, network/HTTP error handling, and the `generated: false` no-match case. They run in CI via the `frontend-test` job in `.github/workflows/test.yml`.
 
 ## Project structure
 
@@ -198,7 +200,8 @@ hubster/
 ├── llm_client/
 │   ├── base.py                  # Generator interface
 │   ├── gemini.py                # Gemini 2.5 Flash implementation
-│   ├── ollama.py                # Ollama (qwen3:8b) implementation
+│   ├── ollama.py                # Ollama (native /api/chat, streaming)
+│   ├── stub.py                  # Deterministic stub for local UI testing
 │   └── settings.py              # LLM settings (pydantic-settings)
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
 ├── docker-compose.yml           # Qdrant + API + frontend + ingestion/test profiles
@@ -348,6 +351,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
+- [ ] Revisit frontend/API proxy timeouts (currently 600s for local Ollama) before any non-local deployment — long-held connections are acceptable for prototype CPU inference only
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [x] Rate limiting and retry logic for API calls
 - [ ] Backoff jitter and retry metrics for outbound Hub API calls (before parallel ingestion)

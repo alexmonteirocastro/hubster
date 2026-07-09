@@ -102,3 +102,8 @@ What *is* still open, confirmed by reading `db/query_filters.py` and ADR-0002's 
 - If `/chat` gains multi-turn/session support, revisit Decision 3.
 - If `Generator` gains streaming support, revisit Decision 2.
 - If a second real view is needed (stats dashboard, human-eval tooling, history, settings), revisit Decision 1 (routing/Next.js) and Decision 6 (whether to reintroduce Streamlit for internal tooling or build the view in React).
+
+## Implementation notes (post-acceptance)
+
+- **API URL (Decision 5):** `VITE_API_BASE_URL` now defaults to `/api` rather than `http://localhost:8000`. The browser calls a same-origin path; Vite dev server and Docker nginx proxy `/api/` to the FastAPI backend with a 10-minute read timeout. This avoids cross-origin CORS issues and prevents browser/proxy timeouts during slow local Ollama generation. The env-var configuration principle from Decision 5 is unchanged.
+- **Markdown rendering:** Assistant `ChatResponse.answer` values render through `react-markdown` (no raw HTML). User-typed questions remain plain text. See [ARCHITECTURE.md](../ARCHITECTURE.md#frontend-react-chat-ui).

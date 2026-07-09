@@ -8,7 +8,9 @@ export function LoadingIndicator() {
         <span />
         <span />
       </span>
-      <span className={styles.label}>Searching jobs and generating an answer…</span>
+      <span className={styles.label}>
+        Searching jobs and generating an answer… Local models may take a few minutes.
+      </span>
     </div>
   );
 }

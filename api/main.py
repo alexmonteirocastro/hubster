@@ -20,7 +20,7 @@ from api.schemas import (
 )
 from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from db.query_filters import resolve_chat_filters
-from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
+from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator, get_llm_settings
 from llm_client.base import Generator
 from llm_client.context import filter_usable_points, format_job_context
 from llm_client.exceptions import (
@@ -262,8 +262,14 @@ def chat(
         _payload_to_source(point.score, cast(dict[str, Any], point.payload))
         for point in usable_points
     ]
+    llm_settings = get_llm_settings()
     context = format_job_context(
-        [cast(dict[str, Any], point.payload) for point in usable_points]
+        [cast(dict[str, Any], point.payload) for point in usable_points],
+        max_chars_per_job=(
+            llm_settings.ollama_max_chars_per_job
+            if llm_settings.llm_provider == "ollama"
+            else None
+        ),
     )
 
     try:

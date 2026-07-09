@@ -5,6 +5,7 @@ from llm_client.context import NO_MATCHING_JOBS_MESSAGE
 from llm_client.gemini import GeminiGenerator
 from llm_client.ollama import OllamaGenerator
 from llm_client.settings import LLMSettings, get_llm_settings
+from llm_client.stub import StubGenerator
 
 __all__ = [
     "Generator",
@@ -12,6 +13,7 @@ __all__ = [
     "LLMSettings",
     "NO_MATCHING_JOBS_MESSAGE",
     "OllamaGenerator",
+    "StubGenerator",
     "get_generator",
     "get_llm_settings",
     "reset_generator",
@@ -23,6 +25,8 @@ def get_generator() -> Generator:
     settings = get_llm_settings()
     if settings.llm_provider == "ollama":
         return OllamaGenerator(settings)
+    if settings.llm_provider == "stub":
+        return StubGenerator()
     return GeminiGenerator(settings)
 
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiNetworkError, postChat } from "./client";
+import { ApiNetworkError, ApiTimeoutError, postChat } from "./client";
 
 describe("postChat", () => {
   beforeEach(() => {
@@ -24,10 +24,11 @@ describe("postChat", () => {
 
     await expect(postChat({ question: "backend roles?" })).resolves.toEqual(body);
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8000/chat",
+      "/api/chat",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ question: "backend roles?" }),
+        signal: expect.any(AbortSignal),
       }),
     );
   });
@@ -36,6 +37,12 @@ describe("postChat", () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
 
     await expect(postChat({ question: "hello" })).rejects.toBeInstanceOf(ApiNetworkError);
+  });
+
+  it("throws ApiTimeoutError when the request is aborted", async () => {
+    vi.mocked(fetch).mockRejectedValue(new DOMException("Aborted", "AbortError"));
+
+    await expect(postChat({ question: "hello" })).rejects.toBeInstanceOf(ApiTimeoutError);
   });
 
   it("throws ApiHttpError with a rate-limit message on 429", async () => {
