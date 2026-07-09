@@ -100,7 +100,30 @@ ollama run qwen3:4b   # preload model into memory (avoids cold-start on first /c
 
 Ollama loads the model lazily on the first request. On CPU, that load can add significant latency to the first `/chat` call. Running `ollama run qwen3:4b` once after `ollama serve` preloads the model so subsequent requests only pay inference time.
 
-When the API runs in Docker and Ollama on the host, set `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in `.env`.
+#### Docker Compose (host Ollama)
+
+When the API runs inside `docker compose up` and Ollama runs on the host (`ollama serve` outside Docker), **`localhost` inside the API container is not the host machine**. With the default `OLLAMA_BASE_URL=http://localhost:11434/v1`, the container tries to reach itself — `/chat` fails with **502** (`GenerationUnavailableError`).
+
+On macOS and Windows Docker Desktop, set in `.env`:
+
+```bash
+OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+```
+
+Recreate the API after changing provider or URL: `docker compose up -d --force-recreate api`.
+
+Keep the preload step above (`ollama run qwen3:4b`) — it applies whether the API runs natively or in Compose.
+
+On Linux Docker, `host.docker.internal` is not always available out of the box; you may need Compose `extra_hosts` or bind Ollama to `0.0.0.0` — see Docker and Ollama docs if the URL above does not connect.
+
+#### Timeouts on CPU
+
+Default `OLLAMA_TIMEOUT_SECONDS=60` may **502** on full RAG prompts with the default `/chat` `limit=5` (~five retrieved jobs in context). On CPU-only hardware, expect roughly **5–12 tokens/second** (see [ADR-0007 Decision 2](docs/adr/0007-local-generation-fallback-ollama-qwen3.md#decision-2-model-is-qwen38b-served-via-ollama)) — a large prompt plus the default `OLLAMA_NUM_PREDICT=256` output cap can exceed 60 seconds.
+
+For local testing, either:
+
+- Raise `OLLAMA_TIMEOUT_SECONDS` in `.env` (e.g. `180`–`300`), or
+- Lower `limit` in `POST /chat` requests (e.g. `2`–`3`) to shrink the retrieved context.
 
 In `.env`:
 
@@ -113,7 +136,7 @@ Defaults: `OLLAMA_BASE_URL=http://localhost:11434/v1`, `OLLAMA_MODEL=qwen3:4b`, 
 
 The Ollama adapter calls Ollama's native `/api/chat` endpoint with streaming and `think: false` (see ADR-0007 implementation notes). Job context sent to Ollama is truncated per listing to keep prompts within CPU-friendly limits.
 
-On CPU-only hardware, expect roughly **3–12 tokens/second** — slower than Gemini's cloud API. Use `LLM_PROVIDER=stub` for rapid UI iteration; use Ollama when you specifically need to validate end-to-end generation quality.
+Use `LLM_PROVIDER=stub` for rapid UI iteration; use Ollama when you specifically need to validate end-to-end generation quality against a real local model.
 
 ### CI summary
 
