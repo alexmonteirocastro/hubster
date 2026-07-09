@@ -120,3 +120,17 @@ jobs:
 
       - name: Run frontend lint
         run: npm run lint
+
+  markdown-link-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-markdown-links
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check markdown links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --root-dir . --verbose --no-progress './**/*.md'

@@ -122,3 +122,4 @@ On CPU-only hardware, expect roughly **3–12 tokens/second** — slower than Ge
 | `unit-test` | `ruff check .`, `ruff format --check .`, `mypy .`, unit pytest |
 | `frontend-test` | `npm run lint`, Vitest |
 | `retrieval-test` | retrieval/generation eval pytest only (no lint/type checks) |
+| `markdown-link-check` | lychee offline check on `**/*.md` (relative paths and anchors only) |
