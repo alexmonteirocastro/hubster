@@ -95,9 +95,7 @@ def format_job_context(
             body = truncate_text(body, max_chars_per_job)
         job_id = job_url_identifier_from_payload(payload)
         job_url = build_job_url(job_id)
-        blocks.append(
-            f"--- Job {index} (id: {job_id}, url: {job_url}) ---\n{body}"
-        )
+        blocks.append(f"--- Job {index} (id: {job_id}, url: {job_url}) ---\n{body}")
     return "\n\n".join(blocks)
 
 

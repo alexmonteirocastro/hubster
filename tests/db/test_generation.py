@@ -74,6 +74,4 @@ def test_golden_generation_cases(retrieval_qdrant):
         assert question == case["query"], case["id"]
         assert context.strip(), case["id"]
         allowed_urls = {source["job_url"] for source in body["sources"]}
-        assert find_ungrounded_link_urls(body["answer"], allowed_urls) == [], case[
-            "id"
-        ]
+        assert find_ungrounded_link_urls(body["answer"], allowed_urls) == [], case["id"]

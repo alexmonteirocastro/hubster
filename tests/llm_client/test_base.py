@@ -85,9 +85,7 @@ def test_find_ungrounded_link_urls_flags_fabricated_urls():
     )
     allowed = {"https://thehub.io/jobs/abc"}
 
-    assert find_ungrounded_link_urls(answer, allowed) == [
-        "https://evil.example/job"
-    ]
+    assert find_ungrounded_link_urls(answer, allowed) == ["https://evil.example/job"]
 
 
 def test_sanitize_answer_links_strips_ungrounded_urls_keeps_label():
@@ -109,8 +107,7 @@ def test_job_url_identifier_from_payload_falls_back_to_unknown():
     assert job_url_identifier_from_payload({}) == "unknown"
     assert job_url_identifier_from_payload({"job_url_identifier": ""}) == "unknown"
     assert (
-        job_url_identifier_from_payload({"job_url_identifier": "  job-1  "})
-        == "job-1"
+        job_url_identifier_from_payload({"job_url_identifier": "  job-1  "}) == "job-1"
     )
 
 
