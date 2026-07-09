@@ -1,15 +1,25 @@
+import re
 from collections.abc import Sequence
 from typing import Any, Protocol
+
+from the_hub_client.utils import build_job_url
 
 NO_MATCHING_JOBS_MESSAGE = (
     "No matching jobs found for your question. Try broadening your search terms."
 )
 
+_MARKDOWN_LINK_URL_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
 _SYSTEM_INSTRUCTION = (
     "You are a job search assistant for The Hub (Nordic and European startup jobs). "
     "Answer the user's question using ONLY the job listings provided below. "
     "If the listings do not contain enough information to answer, say so clearly. "
-    "Do not invent jobs, companies, salaries, locations, or requirements."
+    "Do not invent jobs, companies, salaries, locations, or requirements. "
+    "When referencing a specific job in your answer, format it as a markdown link "
+    "using the exact URL provided for that listing "
+    "(e.g. [Job Title](url) with plain link text — no bold inside the brackets). "
+    "Never invent, alter, or guess a URL. "
+    "Only link jobs that appear in the current context."
 )
 
 
@@ -37,6 +47,18 @@ def truncate_text(text: str, max_chars: int) -> str:
     return stripped[: max_chars - 1].rstrip() + "…"
 
 
+def extract_markdown_link_urls(text: str) -> list[str]:
+    """Return destination URLs from markdown links in model output."""
+    return _MARKDOWN_LINK_URL_RE.findall(text)
+
+
+def find_ungrounded_link_urls(answer: str, allowed_urls: set[str]) -> list[str]:
+    """Return markdown link URLs in answer that are not in allowed_urls."""
+    return [
+        url for url in extract_markdown_link_urls(answer) if url not in allowed_urls
+    ]
+
+
 def format_job_context(
     payloads: list[dict[str, Any]],
     *,
@@ -51,7 +73,12 @@ def format_job_context(
         if max_chars_per_job is not None:
             body = truncate_text(body, max_chars_per_job)
         job_id = payload.get("job_url_identifier", "unknown")
-        blocks.append(f"--- Job {index} (id: {job_id}) ---\n{body}")
+        if not isinstance(job_id, str) or not job_id.strip():
+            job_id = "unknown"
+        job_url = build_job_url(job_id)
+        blocks.append(
+            f"--- Job {index} (id: {job_id}, url: {job_url}) ---\n{body}"
+        )
     return "\n\n".join(blocks)
 
 

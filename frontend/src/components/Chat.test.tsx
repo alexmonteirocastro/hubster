@@ -106,7 +106,8 @@ describe("Chat", () => {
     expect(jobLink).toHaveAttribute("href", "https://thehub.io/jobs/job-1");
     expect(jobLink).toHaveAttribute("target", "_blank");
     expect(jobLink).toHaveAttribute("rel", "noopener noreferrer");
-    expect(screen.getByText(/score 0\.91/i)).toBeInTheDocument();
+    expect(screen.getByText("0.91")).toBeInTheDocument();
+    expect(screen.getByText(/^sources$/i)).toBeInTheDocument();
     expect(mockPostChat).toHaveBeenCalledWith({ question: "backend roles in Denmark" });
   });
 
@@ -212,9 +213,9 @@ describe("Chat", () => {
     await user.click(screen.getByRole("button", { name: /ask/i }));
 
     expect(await screen.findByText(declinedWithSourcesResponse.answer)).toBeInTheDocument();
-    expect(screen.getByText(/retrieved sources/i)).toBeInTheDocument();
+    expect(screen.getByText(/^sources$/i)).toBeInTheDocument();
     expect(screen.getByText(/backend developer/i)).toBeInTheDocument();
-    expect(screen.getByText(/score 0\.42/i)).toBeInTheDocument();
+    expect(screen.getByText("0.42")).toBeInTheDocument();
     expect(
       screen.getByText(/no matching jobs — answer from search, not generated/i),
     ).toBeInTheDocument();

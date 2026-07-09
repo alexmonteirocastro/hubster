@@ -6,14 +6,17 @@ from llm_client.base import Generator
 from llm_client.context import (
     NO_MATCHING_JOBS_MESSAGE,
     build_generation_prompt,
+    extract_markdown_link_urls,
     filter_chat_retrieval_points,
     filter_points_by_min_score,
     filter_usable_points,
+    find_ungrounded_link_urls,
     format_job_context,
     has_sufficient_retrieval,
     truncate_text,
 )
 from llm_client.settings import LLMSettings, get_llm_settings
+from the_hub_client.utils import build_job_url
 
 
 @pytest.fixture(autouse=True)
@@ -44,6 +47,45 @@ def test_build_generation_prompt_includes_context_and_question():
     assert "Job A" in prompt
     assert "remote python roles?" in prompt
     assert "ONLY the job listings" in prompt
+    assert "markdown link" in prompt
+    assert "exact URL" in prompt
+
+
+def test_format_job_context_includes_build_job_url_per_listing():
+    job_id = "6a2ab4ce37958933f39ce11b"
+    context = format_job_context(
+        [
+            {
+                "job_url_identifier": job_id,
+                "document_text": "Backend role in Copenhagen",
+            },
+        ]
+    )
+
+    expected_url = build_job_url(job_id)
+    assert f"id: {job_id}, url: {expected_url}" in context
+    assert "Backend role in Copenhagen" in context
+
+
+def test_extract_markdown_link_urls_finds_inline_links():
+    answer = "See [Backend role](https://thehub.io/jobs/abc) and [PM role](https://thehub.io/jobs/def)."
+
+    assert extract_markdown_link_urls(answer) == [
+        "https://thehub.io/jobs/abc",
+        "https://thehub.io/jobs/def",
+    ]
+
+
+def test_find_ungrounded_link_urls_flags_fabricated_urls():
+    answer = (
+        "Good [match](https://thehub.io/jobs/abc) and bad "
+        "[link](https://evil.example/job)."
+    )
+    allowed = {"https://thehub.io/jobs/abc"}
+
+    assert find_ungrounded_link_urls(answer, allowed) == [
+        "https://evil.example/job"
+    ]
 
 
 def test_format_job_context_skips_empty_document_text():

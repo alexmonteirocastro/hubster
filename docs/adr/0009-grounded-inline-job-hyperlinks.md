@@ -1,6 +1,6 @@
 # ADR-0009: Grounded Inline Job Hyperlinks in Generated Answers
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Date:** 2026-07-09
 * **Related:** ALE-105 (implementation), ALE-104 (markdown rendering — direct dependency), ADR-0001 Decision 2b/3/5 (`Generator` interface, anti-hallucination guardrail, generation-quality eval set), ADR-0004 Decision 4 (sources rendering), ADR-0005 (visual tokens), ADR-0007 (`LLM_PROVIDER=stub` for local UI testing)
 

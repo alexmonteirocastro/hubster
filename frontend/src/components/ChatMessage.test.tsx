@@ -38,6 +38,26 @@ describe("ChatMessage", () => {
     expect(screen.queryByText("**Backend Software Engineer**")).not.toBeInTheDocument();
   });
 
+  it("renders assistant inline markdown links without stray punctuation", () => {
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-3",
+          role: "assistant",
+          content:
+            "[Sales Development Representative](https://thehub.io/jobs/job-1) looks like the closest match.",
+        }}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: /sales development representative/i });
+    expect(link).toHaveAttribute("href", "https://thehub.io/jobs/job-1");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByText(/looks like the closest match/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\)\s*looks/i)).not.toBeInTheDocument();
+  });
+
   it("renders assistant bullet lists as ul/li elements", () => {
     render(
       <ChatMessage
