@@ -33,9 +33,9 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `GEMINI_MAX_RETRIES` | Retries for transient Gemini API failures (optional) | `3` |
 | `GEMINI_BACKOFF_FACTOR` | Exponential backoff base between Gemini retries (optional) | `1.0` |
 | `GEMINI_TIMEOUT` | Per-request timeout in seconds for Gemini (optional) | `30.0` |
-| `OLLAMA_BASE_URL` | Ollama API base URL (when `LLM_PROVIDER=ollama`); `/v1` suffix is stripped for native `/api/chat` calls | `http://localhost:11434/v1` |
+| `OLLAMA_BASE_URL` | Ollama API base URL (when `LLM_PROVIDER=ollama`); `/v1` suffix is stripped for native `/api/chat` calls. In Docker Compose with Ollama on the host, use `http://host.docker.internal:11434/v1` — see [CONTRIBUTING.md](../CONTRIBUTING.md#docker-compose-host-ollama) | `http://localhost:11434/v1` |
 | `OLLAMA_MODEL` | Ollama model tag (when `LLM_PROVIDER=ollama`) | `qwen3:4b` |
-| `OLLAMA_TIMEOUT_SECONDS` | Per-request timeout in seconds for Ollama (optional; higher than Gemini for CPU inference) | `60.0` |
+| `OLLAMA_TIMEOUT_SECONDS` | Per-request timeout in seconds for Ollama (optional; default may 502 on CPU with full RAG context — see [CONTRIBUTING.md](../CONTRIBUTING.md#timeouts-on-cpu)) | `60.0` |
 | `OLLAMA_MAX_CHARS_PER_JOB` | Max characters of `document_text` per job sent to Ollama (optional) | `1200` |
 | `OLLAMA_NUM_PREDICT` | Max output tokens per Ollama request (optional) | `256` |
 | `HUB_CLIENT_MAX_RETRIES` | Retries for transient Hub API failures (optional) | `3` |
@@ -150,7 +150,7 @@ Open [http://localhost:5173](http://localhost:5173) for the chat UI. Job stats a
 
 ### REST API (local details)
 
-Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`. Alternatives: `LLM_PROVIDER=stub` for instant deterministic answers (UI testing), or `LLM_PROVIDER=ollama` for local generation (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-generation-for-development)).
+Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`. Alternatives: `LLM_PROVIDER=stub` for instant deterministic answers (UI testing), or `LLM_PROVIDER=ollama` for local generation (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-generation-for-development)). When running the API in Docker Compose with Ollama on the host, set `OLLAMA_BASE_URL` to `host.docker.internal` — [Docker Compose + host Ollama](../CONTRIBUTING.md#docker-compose-host-ollama).
 
 **CORS:** With the default `/api` same-origin proxy (see Frontend section below), the browser does not make cross-origin requests in normal Docker or Vite dev use. If you override `VITE_API_BASE_URL` to a full URL (e.g. `http://localhost:8000`), the frontend origin must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated; default `http://localhost:5173`).
 
