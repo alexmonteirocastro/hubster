@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +12,11 @@ class LLMSettings(BaseSettings):
         extra="ignore",
     )
 
-    gemini_api_key: str = Field(validation_alias="GEMINI_API_KEY")
+    llm_provider: Literal["gemini", "ollama"] = Field(
+        default="gemini",
+        validation_alias="LLM_PROVIDER",
+    )
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
     gemini_model: str = Field(
         default="gemini-2.5-flash",
         validation_alias="GEMINI_MODEL",
@@ -19,8 +24,20 @@ class LLMSettings(BaseSettings):
     max_retries: int = Field(default=3, validation_alias="GEMINI_MAX_RETRIES")
     backoff_factor: float = Field(default=1.0, validation_alias="GEMINI_BACKOFF_FACTOR")
     timeout_seconds: float = Field(default=30.0, validation_alias="GEMINI_TIMEOUT")
+    ollama_base_url: str = Field(
+        default="http://localhost:11434/v1",
+        validation_alias="OLLAMA_BASE_URL",
+    )
+    ollama_model: str = Field(
+        default="qwen3:8b",
+        validation_alias="OLLAMA_MODEL",
+    )
+    ollama_timeout_seconds: float = Field(
+        default=60.0,
+        validation_alias="OLLAMA_TIMEOUT_SECONDS",
+    )
 
-    @field_validator("gemini_api_key", "gemini_model")
+    @field_validator("gemini_model", "ollama_base_url", "ollama_model")
     @classmethod
     def must_not_be_empty(cls, value: str) -> str:
         if not value.strip():
@@ -34,12 +51,20 @@ class LLMSettings(BaseSettings):
             raise ValueError("must be >= 0")
         return value
 
-    @field_validator("backoff_factor", "timeout_seconds")
+    @field_validator("backoff_factor", "timeout_seconds", "ollama_timeout_seconds")
     @classmethod
     def must_be_positive(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("must be > 0")
         return value
+
+    @model_validator(mode="after")
+    def validate_provider_requirements(self) -> Self:
+        if self.llm_provider == "gemini" and not self.gemini_api_key.strip():
+            raise ValueError(
+                "GEMINI_API_KEY must not be empty when LLM_PROVIDER is gemini"
+            )
+        return self
 
 
 @lru_cache

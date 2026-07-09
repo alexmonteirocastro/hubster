@@ -118,6 +118,39 @@ def test_get_llm_settings_raises_when_api_key_missing(monkeypatch, tmp_path):
         get_llm_settings()
 
 
+def test_get_llm_settings_allows_missing_gemini_key_for_ollama(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+
+    settings = get_llm_settings()
+
+    assert settings.llm_provider == "ollama"
+    assert settings.ollama_model == "qwen3:8b"
+
+
+def test_get_generator_returns_ollama_when_configured(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+
+    from llm_client import get_generator
+    from llm_client.ollama import OllamaGenerator
+
+    assert isinstance(get_generator(), OllamaGenerator)
+
+
+def test_get_generator_returns_gemini_by_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    from llm_client import get_generator
+    from llm_client.gemini import GeminiGenerator
+
+    assert isinstance(get_generator(), GeminiGenerator)
+
+
 def test_llm_settings_rejects_empty_model(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("GEMINI_MODEL", "")

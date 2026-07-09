@@ -27,11 +27,15 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
 | `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
-| `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when using `/chat`) | *(set in `.env`)* |
+| `LLM_PROVIDER` | Generation backend for `/chat`: `gemini` (default) or `ollama` | `gemini` |
+| `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when `LLM_PROVIDER=gemini`) | *(set in `.env`)* |
 | `GEMINI_MODEL` | Generation model name (optional) | `gemini-2.5-flash` |
 | `GEMINI_MAX_RETRIES` | Retries for transient Gemini API failures (optional) | `3` |
 | `GEMINI_BACKOFF_FACTOR` | Exponential backoff base between Gemini retries (optional) | `1.0` |
 | `GEMINI_TIMEOUT` | Per-request timeout in seconds for Gemini (optional) | `30.0` |
+| `OLLAMA_BASE_URL` | Ollama OpenAI-compatible API base URL (when `LLM_PROVIDER=ollama`) | `http://localhost:11434/v1` |
+| `OLLAMA_MODEL` | Ollama model tag (when `LLM_PROVIDER=ollama`) | `qwen3:8b` |
+| `OLLAMA_TIMEOUT_SECONDS` | Per-request timeout in seconds for Ollama (optional; higher than Gemini for CPU inference) | `60.0` |
 | `HUB_CLIENT_MAX_RETRIES` | Retries for transient Hub API failures (optional) | `3` |
 | `HUB_CLIENT_BACKOFF_FACTOR` | Exponential backoff base between retries (optional) | `1.0` |
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
@@ -144,7 +148,7 @@ Open [http://localhost:5173](http://localhost:5173) for the chat UI. Job stats a
 
 ### REST API (local details)
 
-Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` additionally requires `GEMINI_API_KEY` and uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md).
+Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`; set `LLM_PROVIDER=ollama` for local Ollama generation instead (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-ollama-generation-optional)).
 
 **CORS:** Browser clients (e.g. a Vite dev server on port 5173) must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated). The default allows `http://localhost:5173`. Override in `.env` when the frontend runs on a different origin.
 
@@ -194,6 +198,7 @@ hubster/
 ├── llm_client/
 │   ├── base.py                  # Generator interface
 │   ├── gemini.py                # Gemini 2.5 Flash implementation
+│   ├── ollama.py                # Ollama (qwen3:8b) implementation
 │   └── settings.py              # LLM settings (pydantic-settings)
 ├── Dockerfile                   # Multi-stage image (uv build, slim runtime)
 ├── docker-compose.yml           # Qdrant + API + frontend + ingestion/test profiles
