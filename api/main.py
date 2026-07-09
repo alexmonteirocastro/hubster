@@ -22,7 +22,12 @@ from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from db.query_filters import resolve_chat_filters
 from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator, get_llm_settings
 from llm_client.base import Generator
-from llm_client.context import filter_chat_retrieval_points, format_job_context
+from llm_client.context import (
+    filter_chat_retrieval_points,
+    format_job_context,
+    job_url_identifier_from_payload,
+    sanitize_answer_links,
+)
 from llm_client.exceptions import (
     GenerationConfigurationError,
     GenerationRateLimitError,
@@ -189,7 +194,7 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
     try:
         return ChatSource(
             score=score,
-            job_id=payload["job_url_identifier"],
+            job_id=job_url_identifier_from_payload(payload),
             job_role=payload["job_role"],
             document_text=payload.get("document_text", ""),
             job_title=payload.get("job_title"),
@@ -292,6 +297,9 @@ def chat(
             status_code=502,
             detail="The generation service is unavailable.",
         ) from exc
+
+    allowed_job_urls = {source.job_url for source in sources}
+    answer = sanitize_answer_links(answer, allowed_job_urls)
 
     return ChatResponse(
         question=chat_request.question,

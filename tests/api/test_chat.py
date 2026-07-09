@@ -104,6 +104,49 @@ def test_chat_returns_grounded_answer_via_injected_generator(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
+def test_chat_strips_ungrounded_markdown_links_from_answer(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    grounded_url = "https://thehub.io/jobs/job-123"
+    fake_generator = FakeGenerator(
+        answer=(
+            f"[Backend Developer]({grounded_url}) and "
+            "[Evil link](https://evil.example/job) mentioned."
+        ),
+    )
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "job-123",
+                    "job_title": "Backend Developer",
+                    "company": "Acme",
+                    "job_role": "Backend Developer",
+                    "Country": "Denmark",
+                    "location": "Copenhagen",
+                    "document_text": "Job Title: Backend Developer\nCompany: Acme",
+                },
+            )
+        ]
+    )
+
+    response = client.post("/chat", json={"question": "any backend roles?"})
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == (
+        f"[Backend Developer]({grounded_url}) and Evil link mentioned."
+    )
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
 def test_chat_omits_job_title_and_company_when_not_in_payload(
     mock_get_settings,
     mock_get_qdrant_client,

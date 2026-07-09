@@ -9,6 +9,7 @@ NO_MATCHING_JOBS_MESSAGE = (
 )
 
 _MARKDOWN_LINK_URL_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+_MARKDOWN_LINK_FULL_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 
 _SYSTEM_INSTRUCTION = (
     "You are a job search assistant for The Hub (Nordic and European startup jobs). "
@@ -59,6 +60,26 @@ def find_ungrounded_link_urls(answer: str, allowed_urls: set[str]) -> list[str]:
     ]
 
 
+def sanitize_answer_links(answer: str, allowed_urls: set[str]) -> str:
+    """Strip markdown links whose URL is not in allowed_urls, keeping link text."""
+
+    def _replace(match: re.Match[str]) -> str:
+        url = match.group(2)
+        if url in allowed_urls:
+            return match.group(0)
+        return match.group(1)
+
+    return _MARKDOWN_LINK_FULL_RE.sub(_replace, answer)
+
+
+def job_url_identifier_from_payload(payload: dict[str, Any]) -> str:
+    """Normalize job_url_identifier for context blocks and ChatSource.job_id."""
+    job_id = payload.get("job_url_identifier", "unknown")
+    if not isinstance(job_id, str) or not job_id.strip():
+        return "unknown"
+    return job_id.strip()
+
+
 def format_job_context(
     payloads: list[dict[str, Any]],
     *,
@@ -72,9 +93,7 @@ def format_job_context(
         body = document_text.strip()
         if max_chars_per_job is not None:
             body = truncate_text(body, max_chars_per_job)
-        job_id = payload.get("job_url_identifier", "unknown")
-        if not isinstance(job_id, str) or not job_id.strip():
-            job_id = "unknown"
+        job_id = job_url_identifier_from_payload(payload)
         job_url = build_job_url(job_id)
         blocks.append(
             f"--- Job {index} (id: {job_id}, url: {job_url}) ---\n{body}"

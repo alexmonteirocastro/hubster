@@ -13,6 +13,8 @@ from llm_client.context import (
     find_ungrounded_link_urls,
     format_job_context,
     has_sufficient_retrieval,
+    job_url_identifier_from_payload,
+    sanitize_answer_links,
     truncate_text,
 )
 from llm_client.settings import LLMSettings, get_llm_settings
@@ -86,6 +88,30 @@ def test_find_ungrounded_link_urls_flags_fabricated_urls():
     assert find_ungrounded_link_urls(answer, allowed) == [
         "https://evil.example/job"
     ]
+
+
+def test_sanitize_answer_links_strips_ungrounded_urls_keeps_label():
+    answer = (
+        "See [Good role](https://thehub.io/jobs/abc) and "
+        "[Bad role](https://evil.example/job) here."
+    )
+    allowed = {"https://thehub.io/jobs/abc"}
+
+    sanitized = sanitize_answer_links(answer, allowed)
+
+    assert sanitized == (
+        "See [Good role](https://thehub.io/jobs/abc) and Bad role here."
+    )
+    assert find_ungrounded_link_urls(sanitized, allowed) == []
+
+
+def test_job_url_identifier_from_payload_falls_back_to_unknown():
+    assert job_url_identifier_from_payload({}) == "unknown"
+    assert job_url_identifier_from_payload({"job_url_identifier": ""}) == "unknown"
+    assert (
+        job_url_identifier_from_payload({"job_url_identifier": "  job-1  "})
+        == "job-1"
+    )
 
 
 def test_format_job_context_skips_empty_document_text():
