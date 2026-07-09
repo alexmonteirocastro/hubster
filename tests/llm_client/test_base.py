@@ -6,6 +6,8 @@ from llm_client.base import Generator
 from llm_client.context import (
     NO_MATCHING_JOBS_MESSAGE,
     build_generation_prompt,
+    filter_chat_retrieval_points,
+    filter_points_by_min_score,
     filter_usable_points,
     format_job_context,
     has_sufficient_retrieval,
@@ -83,24 +85,80 @@ def test_filter_usable_points_excludes_empty_document_text():
             "Point",
             (),
             {
+                "score": 0.9,
                 "payload": {
                     "job_url_identifier": "job-1",
                     "document_text": "Backend role",
-                }
+                },
             },
         )(),
         type(
             "Point",
             (),
-            {"payload": {"job_url_identifier": "job-2", "document_text": ""}},
+            {
+                "score": 0.9,
+                "payload": {"job_url_identifier": "job-2", "document_text": ""},
+            },
         )(),
-        type("Point", (), {"payload": None})(),
+        type("Point", (), {"score": 0.9, "payload": None})(),
     ]
 
     usable = filter_usable_points(points)
 
     assert len(usable) == 1
     assert usable[0].payload["job_url_identifier"] == "job-1"
+
+
+def test_filter_points_by_min_score_drops_weak_hits():
+    points = [
+        type("Point", (), {"score": 0.88, "payload": {}})(),
+        type("Point", (), {"score": 0.62, "payload": {}})(),
+        type("Point", (), {"score": 0.70, "payload": {}})(),
+    ]
+
+    filtered = filter_points_by_min_score(points, min_score=0.70)
+
+    assert [point.score for point in filtered] == [0.88, 0.70]
+
+
+def test_filter_chat_retrieval_points_requires_text_and_score():
+    points = [
+        type(
+            "Point",
+            (),
+            {
+                "score": 0.88,
+                "payload": {
+                    "job_url_identifier": "strong",
+                    "document_text": "Backend role",
+                },
+            },
+        )(),
+        type(
+            "Point",
+            (),
+            {
+                "score": 0.62,
+                "payload": {
+                    "job_url_identifier": "weak",
+                    "document_text": "Sales role",
+                },
+            },
+        )(),
+        type(
+            "Point",
+            (),
+            {
+                "score": 0.75,
+                "payload": {"job_url_identifier": "empty", "document_text": ""},
+            },
+        )(),
+    ]
+
+    filtered = filter_chat_retrieval_points(points, min_score=0.70)
+
+    assert len(filtered) == 1
+    assert filtered[0].payload["job_url_identifier"] == "strong"
 
 
 def test_has_sufficient_retrieval_requires_non_empty_document_text():

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from db.database import query_jobs_in_qdrant
+from db.settings import DEFAULT_CHAT_SOURCE_MIN_SCORE
 from the_hub_client.models import CountryCode, country_code_to_hub_country_name
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
@@ -60,3 +61,38 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
                 f"Golden query '{case['id']}' returned out-of-country job(s) "
                 f"with Country={out_of_country} when filtering for {country_name}."
             )
+
+
+@pytest.mark.retrieval
+def test_golden_queries_expected_jobs_survive_chat_source_min_score(retrieval_qdrant):
+    """Calibration guard: default /chat floor keeps every golden expected hit."""
+    client, collection_name = retrieval_qdrant
+    golden_set = _load_golden_queries()
+    top_k = golden_set["top_k"]
+
+    for case in golden_set["queries"]:
+        country_filter = case.get("country")
+        country_code = CountryCode(country_filter) if country_filter else None
+        results = query_jobs_in_qdrant(
+            db_client=client,
+            collection_name=collection_name,
+            query_text=case["query"],
+            limit=top_k,
+            country=country_code,
+        )
+        surviving_job_ids = [
+            hit.payload["job_url_identifier"]
+            for hit in results.points
+            if hit.score >= DEFAULT_CHAT_SOURCE_MIN_SCORE
+        ]
+        missing = [
+            job_id
+            for job_id in case["expected_job_ids"]
+            if job_id not in surviving_job_ids
+        ]
+
+        assert not missing, (
+            f"Golden query '{case['id']}' lost expected job(s) {missing} "
+            f"below CHAT_SOURCE_MIN_SCORE={DEFAULT_CHAT_SOURCE_MIN_SCORE}. "
+            f"Surviving: {surviving_job_ids}"
+        )

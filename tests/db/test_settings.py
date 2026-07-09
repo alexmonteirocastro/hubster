@@ -70,6 +70,7 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.cors_allowed_origins == ["http://localhost:5173"]
     assert settings.chat_question_max_length == 500
     assert settings.chat_rate_limit == "10/minute"
+    assert settings.chat_source_min_score == 0.70
 
 
 def test_get_settings_parses_cors_allowed_origins(monkeypatch):

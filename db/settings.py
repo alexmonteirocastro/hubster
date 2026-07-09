@@ -8,6 +8,9 @@ from qdrant_client import QdrantClient
 _DEFAULT_CORS_ORIGINS = ("http://localhost:5173",)
 DEFAULT_CHAT_QUESTION_MAX_LENGTH = 500
 DEFAULT_CHAT_RATE_LIMIT = "10/minute"
+# Calibrated against tests/fixtures/golden_queries.json (BAAI/bge-small-en-v1.5):
+# keeps all expected golden hits (min ~0.71) while dropping weak noise (~0.55–0.63).
+DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.70
 
 
 class Settings(BaseSettings):
@@ -43,6 +46,16 @@ class Settings(BaseSettings):
         description=(
             "Per-client rate limit for POST /chat only (slowapi/limits string, "
             "e.g. 10/minute). In-memory, single-process."
+        ),
+    )
+    chat_source_min_score: float = Field(
+        default=DEFAULT_CHAT_SOURCE_MIN_SCORE,
+        ge=0.0,
+        le=1.0,
+        validation_alias="CHAT_SOURCE_MIN_SCORE",
+        description=(
+            "Minimum cosine similarity for a retrieval hit to be included in "
+            "POST /chat sources and generation context; weaker matches are omitted."
         ),
     )
 
