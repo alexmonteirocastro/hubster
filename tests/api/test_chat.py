@@ -315,6 +315,40 @@ def test_chat_omits_weak_similarity_sources(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
+def test_chat_respects_custom_source_min_score(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace(chat_source_min_score=0.95)
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.88,
+                payload={
+                    "job_url_identifier": "below-custom-floor",
+                    "job_role": "Backend Developer",
+                    "document_text": "Backend APIs in Copenhagen",
+                },
+            )
+        ]
+    )
+
+    response = client.post("/chat", json={"question": "backend roles?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated"] is False
+    assert body["sources"] == []
+    assert fake_generator.calls == []
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
 def test_chat_skips_generation_when_only_weak_similarity_matches(
     mock_get_settings,
     mock_get_qdrant_client,
