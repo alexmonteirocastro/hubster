@@ -21,10 +21,20 @@ COUNTRY_CODE_TO_HUB_COUNTRY_NAME: dict[CountryCode, str] = {
     CountryCode.FINLAND: "Finland",
     CountryCode.ICELAND: "Iceland",
     # EU is a Hub listing meta-code (countryCode=EU), not a per-job location.country
-    # value — verify against a live Hub payload before relying on this filter.
-    # TODO(ALE-82): confirm whether any job's location.country is literally "Europe".
+    # value. Qdrant filtering for EU uses MatchExcept over EU_COUNTRY_FILTER_EXCLUSIONS
+    # (Nordic five plus unknown-location jobs), not this lookup string.
     CountryCode.EUROPE: "Europe",
 }
+
+# Hub country names excluded when filtering for CountryCode.EUROPE in Qdrant.
+EU_COUNTRY_FILTER_EXCLUSIONS: list[str] = [
+    *(
+        COUNTRY_CODE_TO_HUB_COUNTRY_NAME[code]
+        for code in CountryCode
+        if code != CountryCode.EUROPE
+    ),
+    "N/A",
+]
 
 
 def country_code_to_hub_country_name(country: CountryCode) -> str:

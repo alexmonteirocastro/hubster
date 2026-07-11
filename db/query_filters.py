@@ -23,8 +23,8 @@ COUNTRY_ALIASES: list[tuple[str, CountryCode]] = [
     ("iceland", CountryCode.ICELAND),
     ("icelandic", CountryCode.ICELAND),
     ("reykjavik", CountryCode.ICELAND),
-    # TODO(ALE-82): add ("europe", EU) and ("european", EU) once verified
-    # against live Hub payloads.
+    ("europe", CountryCode.EUROPE),
+    ("european", CountryCode.EUROPE),
 ]
 
 REMOTE_FALSE_PHRASES = (

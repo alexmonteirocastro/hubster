@@ -11,7 +11,11 @@ from db.database import (
     load_jobs_into_qdrant,
     query_jobs_in_qdrant,
 )
-from the_hub_client.models import CountryCode, JobOpportunity
+from the_hub_client.models import (
+    CountryCode,
+    EU_COUNTRY_FILTER_EXCLUSIONS,
+    JobOpportunity,
+)
 
 
 def _sample_job() -> JobOpportunity:
@@ -273,6 +277,75 @@ def test_query_jobs_in_qdrant_combines_country_and_remote_filters(monkeypatch):
             models.FieldCondition(
                 key="Country",
                 match=models.MatchValue(value="Sweden"),
+            ),
+            models.FieldCondition(
+                key="Remote",
+                match=models.MatchValue(value=True),
+            ),
+        ]
+    )
+
+
+def test_query_jobs_in_qdrant_uses_match_except_for_europe_country_filter(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
+    )
+    db_client.query_points.return_value = SimpleNamespace(points=[])
+
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    query_jobs_in_qdrant(
+        db_client=db_client,
+        collection_name="JOBS_DEV",
+        query_text="backend developer",
+        country=CountryCode.EUROPE,
+    )
+
+    _, kwargs = db_client.query_points.call_args
+    assert kwargs["query_filter"] == models.Filter(
+        must=[
+            models.FieldCondition(
+                key="Country",
+                match=models.MatchExcept(**{"except": EU_COUNTRY_FILTER_EXCLUSIONS}),
+            )
+        ]
+    )
+
+
+def test_query_jobs_in_qdrant_combines_europe_and_remote_filters(monkeypatch):
+    db_client = MagicMock()
+    db_client.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(vectors={"fast-bge-small-en": object()})
+        )
+    )
+    db_client.query_points.return_value = SimpleNamespace(points=[])
+
+    monkeypatch.setattr(
+        "db.database.get_settings",
+        lambda: SimpleNamespace(embedding_model="BAAI/bge-small-en-v1.5"),
+    )
+
+    query_jobs_in_qdrant(
+        db_client=db_client,
+        collection_name="JOBS_DEV",
+        query_text="backend developer",
+        country=CountryCode.EUROPE,
+        remote=True,
+    )
+
+    _, kwargs = db_client.query_points.call_args
+    assert kwargs["query_filter"] == models.Filter(
+        must=[
+            models.FieldCondition(
+                key="Country",
+                match=models.MatchExcept(**{"except": EU_COUNTRY_FILTER_EXCLUSIONS}),
             ),
             models.FieldCondition(
                 key="Remote",

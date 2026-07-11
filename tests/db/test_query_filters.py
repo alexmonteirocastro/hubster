@@ -18,6 +18,8 @@ from the_hub_client.models import CountryCode
         ("Openings in Oslo for backend work", CountryCode.NORWAY),
         ("Helsinki-based analyst roles", CountryCode.FINLAND),
         ("Engineering jobs in Reykjavik", CountryCode.ICELAND),
+        ("Backend jobs in Europe", CountryCode.EUROPE),
+        ("European backend engineer roles", CountryCode.EUROPE),
     ],
 )
 def test_extract_filters_from_question_detects_country_signals(question, expected):
