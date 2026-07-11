@@ -1,7 +1,7 @@
 # ALE-92 Spike Findings: Keyword/Tech-Stack Retrieval Precision Gap
 
 * **Ticket:** ALE-92
-* **Related:** ADR-0002 (Retrieval Filtering Strategy) — this spike exists because of its own documented revisit trigger
+* **Related:** ADR-0002 (Retrieval Filtering Strategy) — this spike exists because of its own documented revisit trigger; ADR-0010 (`docs/adr/0010-sparse-bm25-hybrid-search.md`) — decision record based on this evidence
 * **Date:** 2026-07-11
 * **Status:** Spike complete — recommendation below
 
@@ -92,7 +92,7 @@ Running this investigation required manually inspecting `document_text` for 10+ 
 
 ## Recommendation
 
-**Go.** Proceed to a new ADR (e.g. ADR-0010) evaluating sparse/BM25 hybrid search as a complement to the existing dense-vector retrieval, per ADR-0002's revisit trigger. The ADR should:
+**Go.** Proceed to a new ADR (e.g. ADR-0010) evaluating sparse/BM25 hybrid search as a complement to the existing dense-vector retrieval, per ADR-0002's revisit trigger — now recorded in `docs/adr/0010-sparse-bm25-hybrid-search.md`. The ADR should:
 
 - Reference cases 1–3 above as concrete, verified evidence (not the single original anecdotal transcript).
 - Explicitly address the Kubernetes/Six Robotics confound — hybrid search may not resolve title-lexical-overlap or multilingual-content cases, and that limitation should be scoped honestly rather than implied away.
