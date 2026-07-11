@@ -102,6 +102,21 @@ def test_extract_filters_from_question_skips_country_when_multiple_appear():
     assert result == ExtractedFilters(country=None, remote=None)
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Roles outside the nordics, ideally in Stockholm",
+        "Non-nordic backend roles in Copenhagen",
+    ],
+)
+def test_extract_filters_from_question_skips_country_when_eu_phrase_conflicts(
+    question,
+):
+    result = extract_filters_from_question(question)
+
+    assert result == ExtractedFilters(country=None, remote=None)
+
+
 def test_resolve_chat_filters_uses_explicit_country_over_question_text():
     result = resolve_chat_filters(
         "frontend roles in Sweden",

@@ -131,6 +131,23 @@ def test_eu_country_filter_excludes_na_jobs(retrieval_qdrant):
 
 
 @pytest.mark.retrieval
+def test_eu_country_filter_with_remote_excludes_na_remote_jobs(retrieval_qdrant):
+    client, collection_name = retrieval_qdrant
+
+    results = query_jobs_in_qdrant(
+        db_client=client,
+        collection_name=collection_name,
+        query_text="remote backend engineer building APIs",
+        limit=10,
+        country=CountryCode.EUROPE,
+        remote=True,
+    )
+    returned_job_ids = _job_ids_from_hits(results.points)
+
+    assert "stu345" not in returned_job_ids
+
+
+@pytest.mark.retrieval
 def test_na_country_remote_jobs_surface_without_country_filter(retrieval_qdrant):
     client, collection_name = retrieval_qdrant
 

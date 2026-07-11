@@ -28,7 +28,8 @@ COUNTRY_ALIASES: list[tuple[str, CountryCode]] = [
 ]
 
 # Multi-word phrases that imply non-Nordic Europe (→ CountryCode.EUROPE / MatchExcept).
-# Checked before single-token aliases; longest first to prefer specific phrasing.
+# Checked alongside single-token aliases; if a phrase matches *and* a specific
+# country alias also appears, no filter is applied (ADR-0002 Decision 3).
 EU_COUNTRY_PHRASES: tuple[str, ...] = (
     "outside of the nordics",
     "outside the nordics",
@@ -103,19 +104,7 @@ class ExtractedFilters(BaseModel):
     remote: bool | None = None
 
 
-def _detect_eu_country_phrase(question: str) -> CountryCode | None:
-    lowered = question.lower()
-    for phrase in EU_COUNTRY_PHRASES:
-        if phrase in lowered:
-            return CountryCode.EUROPE
-    return None
-
-
-def _find_country_match(question: str) -> CountryCode | None:
-    eu_phrase = _detect_eu_country_phrase(question)
-    if eu_phrase is not None:
-        return eu_phrase
-
+def _collect_country_alias_matches(question: str) -> dict[CountryCode, int]:
     lowered = question.lower()
     earliest_by_code: dict[CountryCode, int] = {}
 
@@ -127,12 +116,30 @@ def _find_country_match(question: str) -> CountryCode | None:
         if code not in earliest_by_code or position < earliest_by_code[code]:
             earliest_by_code[code] = position
 
-    if not earliest_by_code:
+    return earliest_by_code
+
+
+def _detect_eu_country_phrase(question: str) -> bool:
+    lowered = question.lower()
+    return any(phrase in lowered for phrase in EU_COUNTRY_PHRASES)
+
+
+def _find_country_match(question: str) -> CountryCode | None:
+    has_eu_phrase = _detect_eu_country_phrase(question)
+    alias_matches = _collect_country_alias_matches(question)
+
+    if has_eu_phrase:
+        # ADR-0002 Decision 3: EU-phrase + specific country mention → no filter.
+        if any(code != CountryCode.EUROPE for code in alias_matches):
+            return None
+        return CountryCode.EUROPE
+
+    if not alias_matches:
         return None
-    if len(earliest_by_code) > 1:
+    if len(alias_matches) > 1:
         return None
 
-    return next(iter(earliest_by_code))
+    return next(iter(alias_matches))
 
 
 def _has_negation_before(text: str, match_start: int) -> bool:
