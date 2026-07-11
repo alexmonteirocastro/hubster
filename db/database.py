@@ -8,8 +8,8 @@ from qdrant_client.http.models import QueryResponse, VectorParams
 from db.settings import get_settings
 from the_hub_client import JobOpportunity
 from the_hub_client.models import (
-    CountryCode,
     EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
     country_code_to_hub_country_name,
 )
 

@@ -6,8 +6,8 @@ import pytest
 from db.database import query_jobs_in_qdrant
 from db.settings import DEFAULT_CHAT_SOURCE_MIN_SCORE
 from the_hub_client.models import (
-    CountryCode,
     EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
     country_code_to_hub_country_name,
 )
 

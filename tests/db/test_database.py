@@ -12,8 +12,8 @@ from db.database import (
     query_jobs_in_qdrant,
 )
 from the_hub_client.models import (
-    CountryCode,
     EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
     JobOpportunity,
 )
 

@@ -2,8 +2,8 @@ import pytest
 
 from the_hub_client.models import (
     COUNTRY_CODE_TO_HUB_COUNTRY_NAME,
-    CountryCode,
     EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
     country_code_to_hub_country_name,
 )
 
