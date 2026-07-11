@@ -27,6 +27,25 @@ COUNTRY_ALIASES: list[tuple[str, CountryCode]] = [
     ("european", CountryCode.EUROPE),
 ]
 
+# Multi-word phrases that imply non-Nordic Europe (→ CountryCode.EUROPE / MatchExcept).
+# Checked before single-token aliases; longest first to prefer specific phrasing.
+EU_COUNTRY_PHRASES: tuple[str, ...] = (
+    "outside of the nordics",
+    "outside the nordics",
+    "outside of nordics",
+    "outside nordics",
+    "excluding the nordics",
+    "excluding nordics",
+    "not in the nordics",
+    "not in nordics",
+    "non-nordic countries",
+    "non nordic countries",
+    "non-nordic",
+    "non nordic",
+    "non-nordics",
+    "non nordics",
+)
+
 REMOTE_FALSE_PHRASES = (
     "not remote",
     "no remote",
@@ -84,7 +103,19 @@ class ExtractedFilters(BaseModel):
     remote: bool | None = None
 
 
+def _detect_eu_country_phrase(question: str) -> CountryCode | None:
+    lowered = question.lower()
+    for phrase in EU_COUNTRY_PHRASES:
+        if phrase in lowered:
+            return CountryCode.EUROPE
+    return None
+
+
 def _find_country_match(question: str) -> CountryCode | None:
+    eu_phrase = _detect_eu_country_phrase(question)
+    if eu_phrase is not None:
+        return eu_phrase
+
     lowered = question.lower()
     earliest_by_code: dict[CountryCode, int] = {}
 
