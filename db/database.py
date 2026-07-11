@@ -7,7 +7,11 @@ from qdrant_client.http.models import QueryResponse, VectorParams
 
 from db.settings import get_settings
 from the_hub_client import JobOpportunity
-from the_hub_client.models import CountryCode, country_code_to_hub_country_name
+from the_hub_client.models import (
+    EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
+    country_code_to_hub_country_name,
+)
 
 
 def job_id_to_point_id(job_id: str) -> str:
@@ -160,14 +164,24 @@ def query_jobs_in_qdrant(
     filter_conditions: list[models.FieldCondition] = []
     if country is not None:
         # Hub's location.country string is stored verbatim in the Qdrant Country field.
-        filter_conditions.append(
-            models.FieldCondition(
-                key="Country",
-                match=models.MatchValue(
-                    value=country_code_to_hub_country_name(country)
-                ),
+        if country == CountryCode.EUROPE:
+            filter_conditions.append(
+                models.FieldCondition(
+                    key="Country",
+                    match=models.MatchExcept(
+                        **{"except": EU_COUNTRY_FILTER_EXCLUSIONS}
+                    ),
+                )
             )
-        )
+        else:
+            filter_conditions.append(
+                models.FieldCondition(
+                    key="Country",
+                    match=models.MatchValue(
+                        value=country_code_to_hub_country_name(country)
+                    ),
+                )
+            )
     if remote is not None:
         filter_conditions.append(
             models.FieldCondition(

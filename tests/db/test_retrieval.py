@@ -5,7 +5,11 @@ import pytest
 
 from db.database import query_jobs_in_qdrant
 from db.settings import DEFAULT_CHAT_SOURCE_MIN_SCORE
-from the_hub_client.models import CountryCode, country_code_to_hub_country_name
+from the_hub_client.models import (
+    EU_COUNTRY_FILTER_EXCLUSIONS,
+    CountryCode,
+    country_code_to_hub_country_name,
+)
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -51,7 +55,18 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
             f"in top-{top_k}. Returned: {returned_job_ids}"
         )
 
-        if country_name:
+        if country_code == CountryCode.EUROPE:
+            forbidden_countries = set(EU_COUNTRY_FILTER_EXCLUSIONS)
+            out_of_scope = [
+                hit.payload.get("Country")
+                for hit in results.points
+                if hit.payload.get("Country") in forbidden_countries
+            ]
+            assert not out_of_scope, (
+                f"Golden query '{case['id']}' returned excluded job(s) "
+                f"with Country={out_of_scope} when filtering for EU."
+            )
+        elif country_name:
             out_of_country = [
                 hit.payload.get("Country")
                 for hit in results.points
@@ -96,3 +111,53 @@ def test_golden_queries_expected_jobs_survive_chat_source_min_score(retrieval_qd
             f"below CHAT_SOURCE_MIN_SCORE={DEFAULT_CHAT_SOURCE_MIN_SCORE}. "
             f"Surviving: {surviving_job_ids}"
         )
+
+
+@pytest.mark.retrieval
+def test_eu_country_filter_excludes_na_jobs(retrieval_qdrant):
+    client, collection_name = retrieval_qdrant
+
+    results = query_jobs_in_qdrant(
+        db_client=client,
+        collection_name=collection_name,
+        query_text="remote backend engineer building APIs",
+        limit=10,
+        country=CountryCode.EUROPE,
+    )
+    returned_job_ids = _job_ids_from_hits(results.points)
+
+    assert "stu345" not in returned_job_ids
+    assert "mno456" in returned_job_ids
+
+
+@pytest.mark.retrieval
+def test_eu_country_filter_with_remote_excludes_na_remote_jobs(retrieval_qdrant):
+    client, collection_name = retrieval_qdrant
+
+    results = query_jobs_in_qdrant(
+        db_client=client,
+        collection_name=collection_name,
+        query_text="remote backend engineer building APIs",
+        limit=10,
+        country=CountryCode.EUROPE,
+        remote=True,
+    )
+    returned_job_ids = _job_ids_from_hits(results.points)
+
+    assert "stu345" not in returned_job_ids
+
+
+@pytest.mark.retrieval
+def test_na_country_remote_jobs_surface_without_country_filter(retrieval_qdrant):
+    client, collection_name = retrieval_qdrant
+
+    results = query_jobs_in_qdrant(
+        db_client=client,
+        collection_name=collection_name,
+        query_text="remote backend engineer building APIs",
+        limit=10,
+        remote=True,
+    )
+    returned_job_ids = _job_ids_from_hits(results.points)
+
+    assert "stu345" in returned_job_ids

@@ -27,6 +27,12 @@
       "query": "frontend developer roles",
       "country": "SE",
       "expected_job_ids": ["jkl012"]
+    },
+    {
+      "id": "backend-germany-eu-filtered",
+      "query": "backend python developer building APIs in Germany",
+      "country": "EU",
+      "expected_job_ids": ["mno456"]
     }
   ]
 }

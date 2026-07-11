@@ -18,6 +18,10 @@ from the_hub_client.models import CountryCode
         ("Openings in Oslo for backend work", CountryCode.NORWAY),
         ("Helsinki-based analyst roles", CountryCode.FINLAND),
         ("Engineering jobs in Reykjavik", CountryCode.ICELAND),
+        ("Backend jobs in Europe", CountryCode.EUROPE),
+        ("European backend engineer roles", CountryCode.EUROPE),
+        ("Designer jobs outside of the nordics", CountryCode.EUROPE),
+        ("Non-nordic backend roles", CountryCode.EUROPE),
     ],
 )
 def test_extract_filters_from_question_detects_country_signals(question, expected):
@@ -94,6 +98,21 @@ def test_extract_filters_from_question_skips_country_when_multiple_appear():
     result = extract_filters_from_question(
         "I've worked in Sweden before, but I'm looking for backend roles in Denmark now"
     )
+
+    assert result == ExtractedFilters(country=None, remote=None)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Roles outside the nordics, ideally in Stockholm",
+        "Non-nordic backend roles in Copenhagen",
+    ],
+)
+def test_extract_filters_from_question_skips_country_when_eu_phrase_conflicts(
+    question,
+):
+    result = extract_filters_from_question(question)
 
     assert result == ExtractedFilters(country=None, remote=None)
 

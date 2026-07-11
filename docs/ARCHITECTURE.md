@@ -242,6 +242,8 @@ Job Description: …
 
 `Country` and `Remote` are indexed as payload fields at collection creation time (`Country` as keyword, `Remote` as boolean) so filtered semantic search stays efficient as the collection grows (see [ADR-0002](adr/0002-retrieval-filtering-strategy.md)). Indexes are only created when a collection is first created; existing collections deployed before this change need to be re-created or migrated manually to gain them.
 
+**Country filter limitations:** Some jobs have no single reported country in The Hub payload (multi-office roles, region-based listings, or fully remote-first roles with no location). These are stored with `Country: "N/A"` (~24 points as of ALE-82). They remain fully searchable via semantic search and the `remote` filter alone, but are **not** retrievable via any country filter (`DK`/`SE`/`NO`/`FI`/`IS`/`EU`) — including `country=EU`, which excludes `N/A` alongside the five Nordic names. This is a known, accepted limitation of the source data, not an ingestion or query bug (same pattern as the alias-table gap documented in [ADR-0002](adr/0002-retrieval-filtering-strategy.md)).
+
 Point IDs are deterministic UUID5 values derived from the Hub job ID.
 
 ## Programmatic usage

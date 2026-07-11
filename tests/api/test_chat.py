@@ -732,6 +732,35 @@ def test_chat_derives_country_filter_from_question_when_not_explicit(
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
 @patch("api.main.get_settings")
+def test_chat_derives_europe_country_filter_from_question_when_not_explicit(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+):
+    fake_generator = FakeGenerator()
+    app.dependency_overrides[get_chat_generator] = lambda: fake_generator
+    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.return_value = SimpleNamespace(points=[])
+
+    response = client.post(
+        "/chat",
+        json={"question": "Any backend developer roles in Europe?"},
+    )
+
+    assert response.status_code == 200
+    mock_query_jobs.assert_called_once()
+    _, kwargs = mock_query_jobs.call_args
+    assert kwargs["country"] == CountryCode.EUROPE
+    assert kwargs["remote"] is None
+    body = response.json()
+    assert body["applied_country"] == "EU"
+    assert body["applied_remote"] is None
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
 def test_chat_applied_filters_are_null_when_nothing_resolved(
     mock_get_settings,
     mock_get_qdrant_client,

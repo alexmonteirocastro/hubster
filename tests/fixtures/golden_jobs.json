@@ -68,5 +68,33 @@
     "salary_type": "range",
     "salary": "Ranging from 600000 to 800000",
     "equity": "0.2%"
+  },
+  {
+    "job_id": "mno456",
+    "job_title": "Backend Engineer",
+    "company": "Berlin Labs",
+    "job_role": "backenddeveloper",
+    "company_description": "We build cloud platforms.",
+    "job_description": "Python backend developer building APIs for European customers.",
+    "country": "Germany",
+    "locality": "Berlin",
+    "remote": false,
+    "salary_type": "range",
+    "salary": "Ranging from 550000 to 750000",
+    "equity": "0.1%"
+  },
+  {
+    "job_id": "stu345",
+    "job_title": "Platform Engineer",
+    "company": "Remote First Co",
+    "job_role": "backenddeveloper",
+    "company_description": "Fully distributed team.",
+    "job_description": "Remote backend engineer building APIs across multiple European offices.",
+    "country": "N/A",
+    "locality": "N/A",
+    "remote": true,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
   }
 ]
