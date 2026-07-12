@@ -17,3 +17,5 @@ wheels/
 # Local data
 tmp/
 qdrant_data/
+
+.cursor/
