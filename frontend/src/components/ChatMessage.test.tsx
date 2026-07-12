@@ -58,6 +58,21 @@ describe("ChatMessage", () => {
     expect(screen.queryByText(/\)\s*looks/i)).not.toBeInTheDocument();
   });
 
+  it("does not render img elements for assistant markdown images", () => {
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-4",
+          role: "assistant",
+          content: "![tracking pixel](https://evil.example/pixel.gif)",
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.querySelector("img")).toBeNull();
+  });
+
   it("renders assistant bullet lists as ul/li elements", () => {
     render(
       <ChatMessage
