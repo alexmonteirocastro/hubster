@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 from llm_client.base import Generator
 from llm_client.context import find_ungrounded_link_urls
+from tests.api_auth import AUTH_HEADERS
 from tests.mock_settings import api_settings_namespace
 from the_hub_client.utils import build_job_url
 
@@ -35,7 +36,7 @@ class ScriptedGenerator(Generator):
 def test_golden_generation_cases(retrieval_qdrant):
     client, collection_name = retrieval_qdrant
     golden_set = _load_golden_generation()
-    api_client = TestClient(app)
+    api_client = TestClient(app, headers=AUTH_HEADERS)
 
     for case in golden_set["cases"]:
         primary_job_id = case["expected_source_job_ids"][0]

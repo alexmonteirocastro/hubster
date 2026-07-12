@@ -8,11 +8,12 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app, create_app
+from tests.api_auth import AUTH_HEADERS, TEST_API_KEY
 from tests.mock_settings import api_settings_namespace
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import HUB_BASE_URL, JOB_LISTINGS_ENDPOINT_ROUTE
 
-client = TestClient(app)
+client = TestClient(app, headers=AUTH_HEADERS)
 
 
 def test_health_returns_ok():
@@ -26,6 +27,7 @@ def test_cors_middleware_configured_from_settings(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", TEST_API_KEY)
     monkeypatch.setenv(
         "CORS_ALLOWED_ORIGINS",
         "http://example.com,http://other.com",
@@ -37,7 +39,7 @@ def test_cors_middleware_configured_from_settings(monkeypatch):
     assert cors.kwargs["allow_origins"] == ["http://example.com", "http://other.com"]
     assert cors.kwargs["allow_credentials"] is False
     assert cors.kwargs["allow_methods"] == ["GET", "POST", "OPTIONS"]
-    assert cors.kwargs["allow_headers"] == ["Content-Type", "Accept"]
+    assert cors.kwargs["allow_headers"] == ["Content-Type", "Accept", "Authorization"]
 
 
 def test_cors_preflight_allows_configured_origin():
@@ -51,6 +53,22 @@ def test_cors_preflight_allows_configured_origin():
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_cors_preflight_allows_authorization_header():
+    response = client.options(
+        "/chat",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    allowed_headers = response.headers["access-control-allow-headers"].lower()
+    assert "authorization" in allowed_headers
 
 
 @responses.activate

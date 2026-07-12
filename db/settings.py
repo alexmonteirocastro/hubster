@@ -58,6 +58,27 @@ class Settings(BaseSettings):
             "POST /chat sources and generation context; weaker matches are omitted."
         ),
     )
+    hubster_api_keys: Annotated[set[str], NoDecode] = Field(
+        validation_alias="HUBSTER_API_KEYS",
+        description=(
+            "Comma-separated set of valid bearer tokens for /chat and /jobs/* "
+            "(see ADR-0011)."
+        ),
+    )
+
+    @field_validator("hubster_api_keys", mode="before")
+    @classmethod
+    def parse_hubster_api_keys(cls, value: str | set[str] | None) -> set[str]:
+        if value is None or value == "":
+            raise ValueError("must contain at least one API key")
+        if isinstance(value, str):
+            keys = {key.strip() for key in value.split(",") if key.strip()}
+            if not keys:
+                raise ValueError("must contain at least one API key")
+            return keys
+        if not value:
+            raise ValueError("must contain at least one API key")
+        return value
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

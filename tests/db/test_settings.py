@@ -45,13 +45,19 @@ def test_get_settings_raises_when_required_env_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     for var in REQUIRED_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.delenv("HUBSTER_API_KEYS", raising=False)
 
     with pytest.raises(ValidationError) as exc_info:
         get_settings()
 
     errors = exc_info.value.errors()
     missing_fields = {error["loc"][0] for error in errors}
-    assert {"QDRANT_URL", "QDRANT_COLLECTION_NAME", "EMBEDDING_MODEL"} <= missing_fields
+    assert {
+        "QDRANT_URL",
+        "QDRANT_COLLECTION_NAME",
+        "EMBEDDING_MODEL",
+        "HUBSTER_API_KEYS",
+    } <= missing_fields
 
 
 def test_get_settings_loads_from_env(monkeypatch):
@@ -59,6 +65,7 @@ def test_get_settings_loads_from_env(monkeypatch):
     monkeypatch.setenv("QDRANT_API_KEY", "")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "abc123, def456")
 
     settings = get_settings()
 
@@ -71,12 +78,14 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.chat_question_max_length == 500
     assert settings.chat_rate_limit == "10/minute"
     assert settings.chat_source_min_score == 0.70
+    assert settings.hubster_api_keys == {"abc123", "def456"}
 
 
 def test_get_settings_parses_cors_allowed_origins(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
     monkeypatch.setenv(
         "CORS_ALLOWED_ORIGINS",
         "http://localhost:5173, http://localhost:3000",
@@ -94,6 +103,7 @@ def test_settings_rejects_empty_cors_allowed_origins(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "  ,  ")
 
     with pytest.raises(ValidationError):
@@ -104,6 +114,7 @@ def test_get_qdrant_client_returns_same_instance(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
 
     class FakeQdrantClient:
         def __init__(self, url: str, api_key: str | None = None):
@@ -124,10 +135,21 @@ def test_get_qdrant_client_returns_same_instance(monkeypatch):
     assert first.model == "BAAI/bge-small-en-v1.5"
 
 
+def test_settings_rejects_empty_hubster_api_keys(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "  ,  ")
+
+    with pytest.raises(ValidationError):
+        Settings()
+
+
 def test_settings_rejects_empty_collection_name(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "")
     monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
 
     with pytest.raises(ValidationError):
         Settings()
