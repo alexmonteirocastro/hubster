@@ -68,6 +68,38 @@ uv run pre-commit run --all-files
 
 Hook configuration lives in `.pre-commit-config.yaml`. Keep the Ruff pre-commit `rev` in sync with the `ruff` version in `pyproject.toml` / `uv.lock`.
 
+## Branching
+
+Every branch maps to exactly one Linear ticket (`ALE-NNN`) — this keeps branch, ticket, and PR traceable to each other, consistent with treating Linear as the source of truth for decisions and history.
+
+**Format:**
+
+```
+<type>/ALE-<NNN>-<short-slug>
+```
+
+- **type** — one of `feat`, `fix`, `docs`, `chore`, `spike`, `refactor`, `test`
+- **ALE-NNN** — the Linear ticket this branch implements, exact case
+- **short-slug** — 3–6 words, kebab-case, taken from the ticket title
+
+**Examples:**
+
+| Ticket | Branch |
+|---|---|
+| ALE-125 (write ADR-0013 doc) | `docs/ALE-125-adr-0013-deployment-doc` |
+| ALE-126 (deploy implementation) | `feat/ALE-126-deploy-render-cloudflare` |
+| ALE-121 (frontend auth modal) | `feat/ALE-121-frontend-auth-lock-modal` |
+| ALE-127 (DevOps observability spike) | `spike/ALE-127-devops-observability` |
+
+**Rules:**
+
+- No ticket, no branch. If a change doesn't have an `ALE-NNN` yet, create the ticket first rather than branching without one. Trivial one-line chores (typo fixes, lint config) are the only exception.
+- `type` reflects the *ticket's* nature, not the diff's mechanics — an ADR-landing ticket is always `docs/`, even if the PR happens to touch code comments.
+- One branch per ticket. Since frontend and backend implementation are always scoped as separate tickets, don't combine them into a single branch.
+- All lowercase, hyphen-separated, no underscores or spaces.
+
+This convention is also encoded as a Cursor rule (`.cursor/rules/branch-naming.mdc`) so branch names created via Cursor Agent follow it automatically.
+
 ## Local generation for development
 
 Gemini is the default `/chat` provider. For local work without Gemini quota or Ollama latency, use the options below. See [ADR-0007](docs/adr/0007-local-generation-fallback-ollama-qwen3.md) for the Ollama design.
