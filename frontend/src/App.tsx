@@ -49,6 +49,7 @@ export default function App() {
       </main>
       <ApiKeyModal
         isOpen={isModalOpen}
+        allowDismiss={hasApiKey}
         onClose={() => setIsModalOpen(false)}
         onVerified={() => setHasApiKey(true)}
       />

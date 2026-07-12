@@ -80,6 +80,26 @@
   opacity: 0.6;
 }
 
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.secondaryButton {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
 .error {
   margin: 0;
   font-size: var(--font-size-sm);

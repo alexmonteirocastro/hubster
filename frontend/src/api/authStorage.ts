@@ -9,11 +9,19 @@ export function getStoredApiKey(): string | null {
 }
 
 export function setStoredApiKey(apiKey: string): void {
-  sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  try {
+    sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  } catch {
+    // Unavailable storage (e.g. Safari private mode) — treat as a failed write.
+  }
 }
 
 export function clearStoredApiKey(): void {
-  sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+  try {
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+  } catch {
+    // Unavailable storage — clearing is best-effort, same as a missing key.
+  }
 }
 
 export function hasStoredApiKey(): boolean {

@@ -249,4 +249,24 @@ describe("postChat", () => {
     expect(sessionStorage.getItem(API_KEY_STORAGE_KEY)).toBeNull();
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
+
+  it("still invokes the unauthorized handler when clearing storage throws", async () => {
+    setStoredApiKey("old-key");
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          detail: { message: "API key is not authorized.", code: "invalid_api_key" },
+        }),
+    } as Response);
+
+    await expect(postChat({ question: "hello" })).rejects.toMatchObject({ status: 401 });
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
 });

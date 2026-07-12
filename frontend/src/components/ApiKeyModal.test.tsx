@@ -98,4 +98,36 @@ describe("ApiKeyModal", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("allows cancel when dismiss is allowed", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ApiKeyModal isOpen allowDismiss onClose={onClose} onVerified={vi.fn()} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show cancel when dismiss is not allowed", () => {
+    render(<ApiKeyModal isOpen onClose={vi.fn()} onVerified={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument();
+  });
+
+  it("closes on Escape when dismiss is allowed", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ApiKeyModal isOpen allowDismiss onClose={onClose} onVerified={vi.fn()} />,
+    );
+
+    await user.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

@@ -101,6 +101,7 @@ async function readErrorResponse(response: Response): Promise<never> {
 export async function verifyApiKey(apiKey: string): Promise<void> {
   let response: Response;
   try {
+    // SE is arbitrary — verifyApiKey only checks auth via response.ok, not stats data.
     response = await fetch(`${API_BASE_URL}/jobs/stats?country=SE`, {
       headers: {
         Accept: "application/json",

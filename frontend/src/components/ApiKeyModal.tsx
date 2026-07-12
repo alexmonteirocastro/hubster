@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, type MouseEvent, useCallback, useEffect, useId, useState } from "react";
 import { ApiHttpError, ApiNetworkError, verifyApiKey } from "../api/client";
 import { setStoredApiKey } from "../api/authStorage";
 import styles from "./ApiKeyModal.module.css";
@@ -7,17 +7,29 @@ type ModalPhase = "entry" | "success";
 
 interface ApiKeyModalProps {
   isOpen: boolean;
+  allowDismiss?: boolean;
   onClose: () => void;
   onVerified: () => void;
 }
 
-export function ApiKeyModal({ isOpen, onClose, onVerified }: ApiKeyModalProps) {
+export function ApiKeyModal({
+  isOpen,
+  allowDismiss = false,
+  onClose,
+  onVerified,
+}: ApiKeyModalProps) {
   const titleId = useId();
   const inputId = useId();
   const [apiKey, setApiKey] = useState("");
   const [phase, setPhase] = useState<ModalPhase>("entry");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const dismiss = useCallback(() => {
+    if (allowDismiss) {
+      onClose();
+    }
+  }, [allowDismiss, onClose]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -27,6 +39,21 @@ export function ApiKeyModal({ isOpen, onClose, onVerified }: ApiKeyModalProps) {
       setIsSubmitting(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !allowDismiss) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [allowDismiss, isOpen, onClose]);
 
   if (!isOpen) {
     return null;
@@ -63,8 +90,14 @@ export function ApiKeyModal({ isOpen, onClose, onVerified }: ApiKeyModalProps) {
     }
   }
 
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) {
+      dismiss();
+    }
+  }
+
   return (
-    <div className={styles.backdrop}>
+    <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div
         className={styles.dialog}
         role="dialog"
@@ -107,9 +140,21 @@ export function ApiKeyModal({ isOpen, onClose, onVerified }: ApiKeyModalProps) {
                   {errorMessage}
                 </p>
               )}
-              <button type="submit" className={styles.button} disabled={isSubmitting}>
-                {isSubmitting ? "Verifying…" : "Submit"}
-              </button>
+              <div className={styles.actions}>
+                {allowDismiss && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={dismiss}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className={styles.button} disabled={isSubmitting}>
+                  {isSubmitting ? "Verifying…" : "Submit"}
+                </button>
+              </div>
             </form>
           </>
         )}
