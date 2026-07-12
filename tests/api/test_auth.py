@@ -15,9 +15,7 @@ _OVERRIDE_AUTH_HEADERS = {"Authorization": f"Bearer {_OVERRIDE_API_KEY}"}
 
 @patch("api.main.query_jobs_in_qdrant")
 @patch("api.main.get_qdrant_client")
-def test_protected_route_accepts_valid_api_key(
-    mock_get_qdrant_client, mock_query_jobs
-):
+def test_protected_route_accepts_valid_api_key(mock_get_qdrant_client, mock_query_jobs):
     from types import SimpleNamespace
 
     mock_settings = api_settings_namespace(hubster_api_keys={_OVERRIDE_API_KEY})
