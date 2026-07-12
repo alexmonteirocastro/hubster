@@ -43,6 +43,9 @@ export function Chat() {
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (error) {
+        if (error instanceof ApiHttpError && error.status === 401) {
+          return;
+        }
         const content =
           error instanceof ApiNetworkError || error instanceof ApiHttpError
             ? error.message
