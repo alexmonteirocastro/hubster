@@ -1,8 +1,12 @@
 import json
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# create_app() runs at api.main import; set auth env before collection.
+os.environ.setdefault("HUBSTER_API_KEYS", "test-api-key")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

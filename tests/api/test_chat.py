@@ -12,10 +12,11 @@ from db.settings import get_settings
 from llm_client.base import Generator
 from llm_client.context import NO_MATCHING_JOBS_MESSAGE
 from llm_client.exceptions import GenerationRateLimitError, GenerationUnavailableError
+from tests.api_auth import AUTH_HEADERS
 from tests.mock_settings import api_settings_namespace
 from the_hub_client.models import CountryCode
 
-client = TestClient(app)
+client = TestClient(app, headers=AUTH_HEADERS)
 
 
 class FakeGenerator(Generator):

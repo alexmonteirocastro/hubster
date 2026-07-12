@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from api.auth import require_api_key
 from api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -81,7 +82,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept"],
+        allow_headers=["Content-Type", "Accept", "Authorization"],
     )
     return application
 
@@ -127,7 +128,11 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/jobs/stats", response_model=JobOpenings)
+@app.get(
+    "/jobs/stats",
+    response_model=JobOpenings,
+    dependencies=[Depends(require_api_key)],
+)
 def jobs_stats(country: CountryCode) -> JobOpenings:
     try:
         return get_full_jobs_picture_by_country(country)
@@ -138,7 +143,11 @@ def jobs_stats(country: CountryCode) -> JobOpenings:
         ) from exc
 
 
-@app.get("/jobs/search", response_model=JobSearchResponse)
+@app.get(
+    "/jobs/search",
+    response_model=JobSearchResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def jobs_search(
     q: str = Query(..., min_length=1, description="Natural-language search query"),
     limit: int = Query(5, ge=1, le=50, description="Maximum number of results"),
@@ -208,7 +217,11 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
         ) from exc
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    dependencies=[Depends(require_api_key)],
+)
 @limiter.limit(_chat_rate_limit)
 def chat(
     request: Request,
