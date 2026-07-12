@@ -1,7 +1,7 @@
 from typing import Any, cast
 
 import requests
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -89,6 +89,8 @@ def create_app() -> FastAPI:
 
 app = create_app()
 
+protected_router = APIRouter(dependencies=[Depends(require_api_key)])
+
 _REQUIRED_HIT_PAYLOAD_FIELDS = {
     "job_id": "job_url_identifier",
     "job_role": "job_role",
@@ -128,11 +130,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get(
-    "/jobs/stats",
-    response_model=JobOpenings,
-    dependencies=[Depends(require_api_key)],
-)
+@protected_router.get("/jobs/stats", response_model=JobOpenings)
 def jobs_stats(country: CountryCode) -> JobOpenings:
     try:
         return get_full_jobs_picture_by_country(country)
@@ -143,11 +141,7 @@ def jobs_stats(country: CountryCode) -> JobOpenings:
         ) from exc
 
 
-@app.get(
-    "/jobs/search",
-    response_model=JobSearchResponse,
-    dependencies=[Depends(require_api_key)],
-)
+@protected_router.get("/jobs/search", response_model=JobSearchResponse)
 def jobs_search(
     q: str = Query(..., min_length=1, description="Natural-language search query"),
     limit: int = Query(5, ge=1, le=50, description="Maximum number of results"),
@@ -217,11 +211,7 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
         ) from exc
 
 
-@app.post(
-    "/chat",
-    response_model=ChatResponse,
-    dependencies=[Depends(require_api_key)],
-)
+@protected_router.post("/chat", response_model=ChatResponse)
 @limiter.limit(_chat_rate_limit)
 def chat(
     request: Request,
@@ -321,3 +311,6 @@ def chat(
         applied_country=filters.country,
         applied_remote=filters.remote,
     )
+
+
+app.include_router(protected_router)
