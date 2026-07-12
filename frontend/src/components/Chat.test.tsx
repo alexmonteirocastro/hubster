@@ -181,6 +181,22 @@ describe("Chat", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not show a chat error bubble on 401 responses", async () => {
+    mockPostChat.mockRejectedValue(new ApiHttpError(401, "API key is not authorized."));
+    const user = userEvent.setup();
+
+    render(<Chat />);
+
+    await user.type(screen.getByLabelText(/ask a question about jobs/i), "hello");
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+
+    await waitFor(() => {
+      expect(mockPostChat).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/api key is not authorized/i)).not.toBeInTheDocument();
+    expect(screen.getByText("hello")).toBeInTheDocument();
+  });
+
   it("renders the no-matching-jobs case when generated is false", async () => {
     mockPostChat.mockResolvedValue(noMatchResponse);
     const user = userEvent.setup();

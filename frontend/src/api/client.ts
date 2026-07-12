@@ -1,3 +1,4 @@
+import { clearStoredApiKey, getStoredApiKey } from "./authStorage";
 import type { ChatRequest, ChatResponse } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -31,7 +32,16 @@ export class ApiHttpError extends Error {
   }
 }
 
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
+}
+
 function defaultHttpMessage(status: number): string {
+  if (status === 401) {
+    return "API key is not authorized.";
+  }
   if (status === 429) {
     return "The service is rate-limited. Please wait a moment and try again.";
   }
@@ -41,11 +51,33 @@ function defaultHttpMessage(status: number): string {
   return `Request failed with status ${status}.`;
 }
 
-async function parseErrorDetail(response: Response): Promise<string | undefined> {
+function buildAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...extra,
+  };
+  const apiKey = getStoredApiKey();
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
+export async function parseErrorDetail(response: Response): Promise<string | undefined> {
   try {
-    const body = (await response.json()) as { detail?: string | { msg: string }[] };
+    const body = (await response.json()) as {
+      detail?: string | { msg: string }[] | { message: string; code?: string };
+    };
     if (typeof body.detail === "string") {
       return body.detail;
+    }
+    if (
+      typeof body.detail === "object" &&
+      body.detail !== null &&
+      !Array.isArray(body.detail) &&
+      "message" in body.detail
+    ) {
+      return body.detail.message;
     }
     if (Array.isArray(body.detail) && body.detail.length > 0) {
       return body.detail.map((item) => item.msg).join("; ");
@@ -56,6 +88,34 @@ async function parseErrorDetail(response: Response): Promise<string | undefined>
   return undefined;
 }
 
+function handleUnauthorizedResponse(): void {
+  clearStoredApiKey();
+  unauthorizedHandler?.();
+}
+
+async function readErrorResponse(response: Response): Promise<never> {
+  const detail = await parseErrorDetail(response);
+  throw new ApiHttpError(response.status, detail);
+}
+
+export async function verifyApiKey(apiKey: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/jobs/stats?country=SE`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+  } catch {
+    throw new ApiNetworkError();
+  }
+
+  if (!response.ok) {
+    await readErrorResponse(response);
+  }
+}
+
 export async function postChat(request: ChatRequest): Promise<ChatResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
@@ -64,7 +124,7 @@ export async function postChat(request: ChatRequest): Promise<ChatResponse> {
   try {
     response = await fetch(`${API_BASE_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: buildAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(request),
       signal: controller.signal,
     });
@@ -77,9 +137,13 @@ export async function postChat(request: ChatRequest): Promise<ChatResponse> {
     clearTimeout(timeoutId);
   }
 
+  if (response.status === 401) {
+    handleUnauthorizedResponse();
+    await readErrorResponse(response);
+  }
+
   if (!response.ok) {
-    const detail = await parseErrorDetail(response);
-    throw new ApiHttpError(response.status, detail);
+    await readErrorResponse(response);
   }
 
   return (await response.json()) as ChatResponse;

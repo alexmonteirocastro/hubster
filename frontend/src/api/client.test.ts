@@ -1,13 +1,90 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiNetworkError, ApiTimeoutError, postChat } from "./client";
+import {
+  API_KEY_STORAGE_KEY,
+  clearStoredApiKey,
+  getStoredApiKey,
+  hasStoredApiKey,
+  setStoredApiKey,
+} from "./authStorage";
+import {
+  ApiHttpError,
+  ApiNetworkError,
+  ApiTimeoutError,
+  postChat,
+  setUnauthorizedHandler,
+  verifyApiKey,
+} from "./client";
 
-describe("postChat", () => {
+describe("authStorage", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("stores and clears the API key in sessionStorage", () => {
+    expect(hasStoredApiKey()).toBe(false);
+    setStoredApiKey("abc123");
+    expect(getStoredApiKey()).toBe("abc123");
+    expect(hasStoredApiKey()).toBe(true);
+    clearStoredApiKey();
+    expect(hasStoredApiKey()).toBe(false);
+  });
+});
+
+describe("verifyApiKey", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("calls jobs stats with the bearer token", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ total_jobs: 1, remote_jobs: 0, jobs_per_role: {} }),
+    } as Response);
+
+    await verifyApiKey("test-key");
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/jobs/stats?country=SE",
+      expect.objectContaining({
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer test-key",
+        },
+      }),
+    );
+  });
+
+  it("throws ApiHttpError when the key is rejected", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          detail: { message: "API key is not authorized.", code: "invalid_api_key" },
+        }),
+    } as Response);
+
+    await expect(verifyApiKey("bad-key")).rejects.toMatchObject({
+      status: 401,
+      message: "API key is not authorized.",
+    });
+  });
+});
+
+describe("postChat", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    sessionStorage.clear();
+    setUnauthorizedHandler(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setUnauthorizedHandler(null);
   });
 
   it("returns parsed response on success", async () => {
@@ -33,6 +110,31 @@ describe("postChat", () => {
     );
   });
 
+  it("sends Authorization when a key is stored", async () => {
+    setStoredApiKey("stored-key");
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          question: "hello",
+          answer: "ok",
+          sources: [],
+          generated: true,
+        }),
+    } as Response);
+
+    await postChat({ question: "hello" });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/chat",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer stored-key",
+        }),
+      }),
+    );
+  });
+
   it("throws ApiNetworkError when fetch fails", async () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
 
@@ -42,7 +144,9 @@ describe("postChat", () => {
   it("throws ApiTimeoutError when the request is aborted", async () => {
     vi.mocked(fetch).mockRejectedValue(new DOMException("Aborted", "AbortError"));
 
-    await expect(postChat({ question: "hello" })).rejects.toBeInstanceOf(ApiTimeoutError);
+    await expect(postChat({ question: "hello" })).rejects.toBeInstanceOf(
+      ApiTimeoutError,
+    );
   });
 
   it("throws ApiHttpError with a rate-limit message on 429", async () => {
@@ -109,5 +213,40 @@ describe("postChat", () => {
       status: 429,
       message: "The generation service is rate-limited. Please try again shortly.",
     });
+  });
+
+  it("parses structured auth error detail on 401", async () => {
+    setStoredApiKey("old-key");
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          detail: { message: "API key is not authorized.", code: "invalid_api_key" },
+        }),
+    } as Response);
+
+    await expect(postChat({ question: "hello" })).rejects.toMatchObject({
+      status: 401,
+      message: "API key is not authorized.",
+    });
+  });
+
+  it("clears storage and invokes the unauthorized handler on 401", async () => {
+    setStoredApiKey("old-key");
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          detail: { message: "API key is not authorized.", code: "invalid_api_key" },
+        }),
+    } as Response);
+
+    await expect(postChat({ question: "hello" })).rejects.toBeInstanceOf(ApiHttpError);
+    expect(sessionStorage.getItem(API_KEY_STORAGE_KEY)).toBeNull();
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 });
