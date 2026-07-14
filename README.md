@@ -4,6 +4,12 @@
 
 Hubster ingests job listings from [The Hub](https://thehub.io/) via their public API, embeds the content with FastEmbed, and stores the results in [Qdrant](https://qdrant.tech/) for semantic search — with a `/chat` RAG layer and React UI for natural-language job discovery across Nordic/European startup markets.
 
+## Live deployment
+
+- **App:** https://hubster-2ox.pages.dev
+- **API:** https://hubster-alpi.onrender.com
+- Hosted on Cloudflare Pages (frontend) + Render (backend) + Qdrant Cloud (vector store), all free-tier. See [ADR-0013](docs/adr/0013-deployment-strategy.md) for the full rationale and accepted trade-offs.
+
 ## Quick start (Docker)
 
 ### 1. Configure environment
@@ -57,6 +63,10 @@ Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs) when 
 ## Dev workflow
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#code-quality) for Ruff, mypy, oxlint, pre-commit setup, and the CI checks to run locally before opening a PR.
+
+## Known limitations
+
+- **Cold start on first request:** the backend runs on Render's free tier, which spins down after 15 minutes of inactivity. The first `/chat` or `/jobs/*` request after a quiet period may take 30–60s to respond while the service wakes up. This is a known, accepted trade-off of the free-tier hosting (see [ADR-0013](docs/adr/0013-deployment-strategy.md)) — not fixed for the prototype stage.
 
 ## Where to go next
 
