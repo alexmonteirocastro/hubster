@@ -1,3 +1,5 @@
+import logging
+import re
 import uuid
 from typing import cast
 from uuid import UUID
@@ -12,6 +14,57 @@ from the_hub_client.models import (
     CountryCode,
     country_code_to_hub_country_name,
 )
+
+logger = logging.getLogger(__name__)
+
+# ADR-0012 Decision 3: closed deterministic injection patterns stripped at ingestion.
+INJECTION_PATTERNS: tuple[str, ...] = (
+    "ignore previous instructions",
+    "ignore all previous instructions",
+    "disregard the above",
+    "disregard all previous instructions",
+    "system:",
+    "assistant:",
+    "###",
+)
+
+_INJECTION_PATTERN_REGEX = re.compile(
+    "|".join(re.escape(pattern) for pattern in INJECTION_PATTERNS),
+    re.IGNORECASE,
+)
+
+
+def sanitize_document_text(document_text: str) -> tuple[str, list[str]]:
+    """Strip obvious injection patterns from document_text.
+
+    Returns sanitized text and the canonical matched patterns (ADR-0012 Decisions 3–4).
+    """
+    matched_patterns: list[str] = []
+
+    def _record_and_strip(match: re.Match[str]) -> str:
+        matched = match.group(0)
+        canonical = next(
+            (
+                pattern
+                for pattern in INJECTION_PATTERNS
+                if matched.casefold() == pattern.casefold()
+            ),
+            matched,
+        )
+        matched_patterns.append(canonical)
+        return ""
+
+    sanitized = _INJECTION_PATTERN_REGEX.sub(_record_and_strip, document_text)
+    return sanitized, matched_patterns
+
+
+def _build_document_text(job: JobOpportunity) -> str:
+    return (
+        f"Job Title: {job.job_title}\n"
+        f"Company: {job.company}\n"
+        f"Company Description: {job.company_description}\n"
+        f"Job Description: {job.job_description}"
+    )
 
 
 def job_id_to_point_id(job_id: str) -> str:
@@ -57,15 +110,17 @@ def load_jobs_into_qdrant(
 ) -> None:
     embedding_model = get_settings().embedding_model
 
-    jobs_documents = [
-        (
-            f"Job Title: {job.job_title}\n"
-            f"Company: {job.company}\n"
-            f"Company Description: {job.company_description}\n"
-            f"Job Description: {job.job_description}"
-        )
-        for job in jobs
-    ]
+    jobs_documents: list[str] = []
+    for job in jobs:
+        doc_text, matched_patterns = sanitize_document_text(_build_document_text(job))
+        if matched_patterns:
+            for pattern in matched_patterns:
+                logger.warning(
+                    "Stripped injection pattern from document_text for job %s: %r",
+                    job.job_id,
+                    pattern,
+                )
+        jobs_documents.append(doc_text)
 
     jobs_metadata = [
         {
