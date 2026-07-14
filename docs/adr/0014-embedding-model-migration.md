@@ -1,6 +1,6 @@
 # ADR-0014: Embedding Model Migration — `multilingual-e5-small` via Qdrant Cloud Inference
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Date:** 2026-07-14
 * **Related:** ALE-132 (spike — Cloud Inference feasibility, memory-crash root cause), ALE-138 (spike — model comparison, fixture and production-scale validation), ADR-0013 (deployment strategy — this ADR closes the memory-footprint gap it left open), ADR-0002 Decision 4 (`CHAT_SOURCE_MIN_SCORE` — recalibrated here), ADR-0010 (planned sparse/BM25 hybrid search, not yet accepted — explicitly not resolved by this ADR)
 
