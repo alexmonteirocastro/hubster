@@ -1,0 +1,43 @@
+---
+description: Run CI-parity checks before git push or opening a PR (backend + frontend)
+alwaysApply: true
+---
+
+# Pre-push CI checks
+
+Before `git push` or `gh pr create`, run the same checks CI enforces (`.github/workflows/test.yml`). Do not push if any step fails — fix first, then push.
+
+## Backend (unit-test job)
+
+From repo root:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy .
+uv run pytest -m "not retrieval and not generation"
+```
+
+Apply fixes when lint/format fail:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+## Frontend (frontend-test job)
+
+When `frontend/` changed:
+
+```bash
+cd frontend && npm run lint && npm test
+```
+
+## Optional: pre-commit (commit time)
+
+Pre-commit is configured in `.pre-commit-config.yaml` but opt-in (`uv run pre-commit install`). It runs Ruff + oxlint on commit — **not** mypy or pytest. Pre-push checks above still required.
+
+## Test pitfalls
+
+- CI unit-test has **no** `GEMINI_API_KEY`. `/chat` tests that hit `get_llm_settings()` must mock it (see `tests/db/test_generation.py` golden/poisoned cases).
+- Retrieval/generation eval tests run in the separate `retrieval-test` job (needs Qdrant): `uv run pytest -m "retrieval or generation"`.
