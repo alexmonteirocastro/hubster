@@ -105,3 +105,25 @@ Update `tests/fixtures/golden_jobs.json` and `tests/fixtures/golden_queries.json
 ## Spike history
 
 Added in ALE-138 (`feat/ALE-138-compare-embedding-models`). Findings posted on the Linear ticket.
+
+## 3. E5 evaluation against the real production corpus
+
+For score distributions and manual relevance review at production scale (~961 jobs), without fixture ground truth:
+
+```bash
+# Fast smoke test (first 100 production jobs)
+uv run python scripts/evaluate_e5_against_production.py --limit 100
+
+# Full run (all production points)
+uv run python scripts/evaluate_e5_against_production.py
+```
+
+**What it does:**
+
+1. **Read-only scroll** of `QDRANT_COLLECTION_NAME` (production) — pulls `document_text` + metadata. Never writes to production.
+2. **Re-embeds** the same texts under `intfloat/multilingual-e5-small` into a throwaway collection (`JOBS_COMPARE_E5_PROD`).
+3. **Runs 10 queries** — the 6 golden query texts from `golden_queries.json` plus 4 broader ones (remote, Norway, DevOps, Finland).
+4. **Prints top-5 hits** per query with job title, company, country, and score (for manual eyeballing, ALE-92 style).
+5. **Aggregate score stats** — min/max/mean/median of top-1 and rank-5 scores to inform `CHAT_SOURCE_MIN_SCORE`.
+
+Requires **Qdrant Cloud** (`cloud_inference=True`). Use `--keep-collection` to inspect results in the Qdrant console afterward.
