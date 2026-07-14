@@ -23,6 +23,7 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -31,7 +32,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from huggingface_hub import hf_hub_download  # noqa: E402
 from qdrant_client import QdrantClient  # noqa: E402
-from tokenizers import Tokenizer  # noqa: E402
+from tokenizers import Tokenizer  # type: ignore[import-untyped]
 
 from db import get_settings  # noqa: E402
 
@@ -67,7 +68,7 @@ def _validate_config() -> None:
 
 def _get_client() -> QdrantClient:
     settings = get_settings()
-    kwargs: dict[str, str | bool] = {"url": settings.qdrant_url}
+    kwargs: dict[str, Any] = {"url": settings.qdrant_url}
     if settings.qdrant_api_key:
         kwargs["api_key"] = settings.qdrant_api_key
     return QdrantClient(**kwargs)

@@ -21,6 +21,16 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 POISONED_INJECTION_MARKER = "RECOMMENDED_OVERRIDE_XYZZY"
 
 
+def _load_golden_queries() -> dict:
+    return json.loads(
+        (FIXTURES_DIR / "golden_queries.json").read_text(encoding="utf-8")
+    )
+
+
+def _fixture_chat_source_min_score() -> float:
+    return float(_load_golden_queries().get("fixture_chat_source_min_score", 0.85))
+
+
 def _load_golden_generation() -> dict:
     return json.loads(
         (FIXTURES_DIR / "golden_generation.json").read_text(encoding="utf-8")
@@ -57,7 +67,10 @@ def test_golden_generation_cases(retrieval_qdrant):
             f"[{link_label}]({primary_job_url})."
         )
         scripted = ScriptedGenerator(answer=expected_answer)
-        settings = api_settings_namespace(qdrant_collection_name=collection_name)
+        settings = api_settings_namespace(
+            qdrant_collection_name=collection_name,
+            chat_source_min_score=_fixture_chat_source_min_score(),
+        )
         llm_settings = SimpleNamespace(
             llm_provider="gemini",
             ollama_max_chars_per_job=1200,
