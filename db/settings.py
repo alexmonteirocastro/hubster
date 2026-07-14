@@ -1,5 +1,6 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -8,9 +9,11 @@ from qdrant_client import QdrantClient
 _DEFAULT_CORS_ORIGINS = ("http://localhost:5173",)
 DEFAULT_CHAT_QUESTION_MAX_LENGTH = 500
 DEFAULT_CHAT_RATE_LIMIT = "10/minute"
-# Calibrated against tests/fixtures/golden_queries.json (BAAI/bge-small-en-v1.5):
-# keeps all expected golden hits (min ~0.71) while dropping weak noise (~0.55–0.63).
-DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.70
+# Calibrated against tests/fixtures/golden_queries.json
+# (intfloat/multilingual-e5-small): full production corpus (ALE-138):
+# expected golden hits top-1 ~0.838–0.879, rank-5 ~0.832–0.874;
+# 0.85 sits between rank-5 median (0.853) and mean (0.852).
+DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.85
 
 
 class Settings(BaseSettings):
@@ -114,6 +117,14 @@ class Settings(BaseSettings):
         return value
 
 
+def uses_cloud_inference(settings: Settings | None = None) -> bool:
+    """True when Qdrant Cloud Inference should embed server-side."""
+    settings = settings or get_settings()
+    host = urlparse(settings.qdrant_url).hostname or ""
+    is_cloud_host = host not in {"", "localhost", "127.0.0.1", "::1"}
+    return is_cloud_host and settings.qdrant_api_key is not None
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
@@ -122,9 +133,13 @@ def get_settings() -> Settings:
 @lru_cache
 def get_qdrant_client() -> QdrantClient:
     settings = get_settings()
+    kwargs: dict[str, Any] = {"url": settings.qdrant_url}
     if settings.qdrant_api_key:
-        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
-    else:
-        client = QdrantClient(url=settings.qdrant_url)
-    client.set_model(settings.embedding_model)
+        kwargs["api_key"] = settings.qdrant_api_key
+    if uses_cloud_inference(settings):
+        kwargs["cloud_inference"] = True
+        kwargs["check_compatibility"] = False
+    client = QdrantClient(**kwargs)
+    if not uses_cloud_inference(settings):
+        client.set_model(settings.embedding_model)
     return client

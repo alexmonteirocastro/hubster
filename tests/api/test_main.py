@@ -26,7 +26,7 @@ def test_health_returns_ok():
 def test_cors_middleware_configured_from_settings(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
-    monkeypatch.setenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
     monkeypatch.setenv("HUBSTER_API_KEYS", TEST_API_KEY)
     monkeypatch.setenv(
         "CORS_ALLOWED_ORIGINS",
