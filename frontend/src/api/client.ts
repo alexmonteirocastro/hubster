@@ -2,8 +2,24 @@ import { clearStoredApiKey, getStoredApiKey } from "./authStorage";
 import type { ChatRequest, ChatResponse } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
-/** Local Ollama generation can exceed 3 minutes on CPU; keep above backend timeout. */
-const CHAT_REQUEST_TIMEOUT_MS = 600_000;
+
+/** Default for local dev / Ollama; production builds set VITE_CHAT_REQUEST_TIMEOUT_MS via .env.production. */
+export const DEFAULT_CHAT_REQUEST_TIMEOUT_MS = 600_000;
+
+function parseChatRequestTimeoutMs(): number {
+  const raw = import.meta.env.VITE_CHAT_REQUEST_TIMEOUT_MS;
+  if (raw === undefined || raw === "") {
+    return DEFAULT_CHAT_REQUEST_TIMEOUT_MS;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_CHAT_REQUEST_TIMEOUT_MS;
+  }
+  return parsed;
+}
+
+/** Browser-side /chat fetch timeout; should be ≥ the proxy timeout in each environment. */
+export const CHAT_REQUEST_TIMEOUT_MS = parseChatRequestTimeoutMs();
 
 export class ApiNetworkError extends Error {
   constructor(message = "Unable to reach the API. Check your connection and try again.") {

@@ -39,5 +39,9 @@ services:
       - ./llm_client:/app/llm_client
 
   frontend:
+    build:
+      args:
+        # Keep client timeout aligned with nginx.dev.conf (600s) for local Ollama.
+        VITE_CHAT_REQUEST_TIMEOUT_MS: "600000"
     volumes:
       - ./frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro

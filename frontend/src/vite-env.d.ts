@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
   readonly VITE_SHOW_DEBUG_SOURCES?: string;
+  readonly VITE_CHAT_REQUEST_TIMEOUT_MS?: string;
 }
 
 interface ImportMeta {
