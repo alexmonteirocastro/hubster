@@ -134,3 +134,11 @@ jobs:
         uses: lycheeverse/lychee-action@v2
         with:
           args: --offline --root-dir . --verbose --no-progress './**/*.md'
+
+  deploy:
+    needs: [unit-test, frontend-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: curl -sf -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
