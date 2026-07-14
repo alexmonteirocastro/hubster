@@ -1,0 +1,51 @@
+name: Ingestion Sync
+
+# ADR-0013 Decision 5: runs the existing sync command directly (no Docker Compose
+# in production) against the production Qdrant Cloud cluster. Cadence must stay
+# under 1 week or Decision 4's suspend-risk mitigation stops holding — daily is
+# well under that ceiling (this ticket sets 24h from the start, rather than
+# the README's original 6-hour cron example).
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight UTC — well under the 1-week suspend-risk ceiling
+  workflow_dispatch: {} # allows a manual run from the Actions tab (AC: "confirm one manual run succeeds")
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: ingestion-sync
+      cancel-in-progress: false
+    env:
+      QDRANT_URL: ${{ secrets.QDRANT_URL }}
+      QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+      QDRANT_COLLECTION_NAME: ${{ secrets.QDRANT_COLLECTION_NAME }}
+      EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
+      # Settings() requires HUBSTER_API_KEYS even though ingestion doesn't use
+      # /chat auth — reuse the same production key(s) set on Render.
+      HUBSTER_API_KEYS: ${{ secrets.HUBSTER_API_KEYS }}
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-dev
+
+      - name: Run incremental sync
+        run: uv run python main.py
+        # Sync (not --seed): diffs live listings vs Qdrant, adds new jobs,
+        # removes delisted ones. Never drops the collection, so search stays
+        # available throughout — safe to run unattended on a schedule.
