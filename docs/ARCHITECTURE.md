@@ -178,6 +178,14 @@ npm run dev
 | `nginx.conf` | Production Docker image default (no dev override mounted) | **90s** — sized to Gemini's full retry envelope (`GEMINI_MAX_RETRIES=3` + backoff), not single-request `GEMINI_TIMEOUT` | `limit_conn` (5 concurrent/IP) + `limit_req` (15/min, burst 5 — looser than default `CHAT_RATE_LIMIT=10/minute` so app-level 429 runs first) — defense-in-depth alongside ADR-0006's slowapi limiter; both layers return **429** on rejection |
 | `nginx.dev.conf` | Local `docker compose up` (mounted via `docker-compose.override.yml`) | **600s** — preserves slow local Ollama generation (ALE-111) | None |
 
+**Chat client timeout** (`VITE_CHAT_REQUEST_TIMEOUT_MS` → `CHAT_REQUEST_TIMEOUT_MS` in `frontend/src/api/client.ts`):
+
+| Environment | Value | Set via |
+|---|---|---|
+| Production build (`npm run build`) | **90s** (90000 ms) | `frontend/.env.production` — matches nginx `proxy_read_timeout`; browser aborts only after the proxy would |
+| Local `npm run dev` | **600s** (600000 ms) | Code default when env unset — independent of Vite dev proxy timeout (also 600s) |
+| Local `docker compose up` | **600s** | `docker-compose.override.yml` build arg overrides `.env.production` so client stays aligned with `nginx.dev.conf` |
+
 Via Docker Compose, the `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=/api` by default (override via `.env` or Compose build args).
 
 **Frontend tests**
@@ -360,7 +368,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
-- [ ] Revisit frontend dev proxy + client timeouts (Vite / `CHAT_REQUEST_TIMEOUT_MS`) — backend nginx half done in ALE-130; frontend tracked on ALE-131
+- [x] Revisit frontend dev proxy + client timeouts (Vite / `CHAT_REQUEST_TIMEOUT_MS`) — ALE-130 (nginx) + ALE-131 (client)
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [x] Rate limiting and retry logic for API calls
 - [ ] Backoff jitter and retry metrics for outbound Hub API calls (before parallel ingestion)
