@@ -1,5 +1,6 @@
 {
   "top_k": 5,
+  "fixture_chat_source_min_score": 0.826,
   "queries": [
     {
       "id": "backend-copenhagen",

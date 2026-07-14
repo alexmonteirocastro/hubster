@@ -7,7 +7,7 @@ def api_settings_namespace(**overrides):
         "qdrant_collection_name": "JOBS_ON_THE_HUB",
         "chat_question_max_length": 500,
         "chat_rate_limit": "10/minute",
-        "chat_source_min_score": 0.70,
+        "chat_source_min_score": 0.85,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)

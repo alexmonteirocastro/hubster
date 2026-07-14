@@ -3,6 +3,7 @@ import argparse
 from db import (
     backfill_job_title_company_metadata,
     create_collection,
+    drop_db,
     get_qdrant_client,
     get_settings,
     query_jobs_in_qdrant,
@@ -12,7 +13,7 @@ from db import (
 )
 
 
-def main(mode: str = "sync") -> None:
+def main(mode: str = "sync", *, reset: bool = False) -> None:
     settings = get_settings()
     client = get_qdrant_client()
 
@@ -45,15 +46,21 @@ def main(mode: str = "sync") -> None:
         backfill_job_title_company_metadata(client, settings.qdrant_dev_collection_name)
         return
     else:
-        create_collection(client, settings.qdrant_collection_name)
         collection_name = settings.qdrant_collection_name
 
         if mode == "seed":
+            if reset:
+                print(
+                    f"Dropping existing collection '{collection_name}' before seed..."
+                )
+                drop_db(client, collection_name)
+            create_collection(client, collection_name)
             print("Running full seed (bootstrap)...")
-            seed_qdrant_db(client, settings.qdrant_collection_name)
+            seed_qdrant_db(client, collection_name)
         elif mode == "sync":
+            create_collection(client, collection_name)
             print("Running incremental sync...")
-            sync_qdrant_db(client, settings.qdrant_collection_name)
+            sync_qdrant_db(client, collection_name)
         else:
             raise ValueError(
                 f"Unknown mode: {mode}. Use 'sync', 'seed', 'seed-dev', "
@@ -79,6 +86,14 @@ def _run_main() -> None:
         "--seed",
         action="store_true",
         help="Full bootstrap seed (first run). Default is incremental sync.",
+    )
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help=(
+            "With --seed only: delete the production collection first, then "
+            "recreate and ingest from scratch (use for embedding model migrations)."
+        ),
     )
     parser.add_argument(
         "--seed-dev",
@@ -114,6 +129,8 @@ def _run_main() -> None:
         parser.error(
             "Use only one of --seed, --seed-dev, --backfill, or --backfill-dev."
         )
+    if args.reset and not args.seed:
+        parser.error("--reset requires --seed.")
 
     if args.seed_dev:
         mode = "seed-dev"
@@ -126,7 +143,7 @@ def _run_main() -> None:
     else:
         mode = "sync"
 
-    main(mode=mode)
+    main(mode=mode, reset=args.reset)
 
 
 if __name__ == "__main__":

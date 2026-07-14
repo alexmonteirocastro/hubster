@@ -13,10 +13,8 @@ logger = logging.getLogger(__name__)
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 RETRIEVAL_ENV_DEFAULTS = {
-    "QDRANT_URL": "http://localhost:6333",
-    "QDRANT_COLLECTION_NAME": "JOBS_ON_THE_HUB",
     "QDRANT_DEV_COLLECTION_NAME": "JOBS_DEV",
-    "EMBEDDING_MODEL": "BAAI/bge-small-en-v1.5",
+    "EMBEDDING_MODEL": "intfloat/multilingual-e5-small",
     "HUBSTER_API_KEYS": "test-api-key",
 }
 

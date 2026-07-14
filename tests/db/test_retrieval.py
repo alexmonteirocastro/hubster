@@ -80,10 +80,17 @@ def test_golden_queries_hit_expected_jobs_in_top_k(retrieval_qdrant):
 
 @pytest.mark.retrieval
 def test_golden_queries_expected_jobs_survive_chat_source_min_score(retrieval_qdrant):
-    """Calibration guard: default /chat floor keeps every golden expected hit."""
+    """Calibration guard: /chat floor keeps every golden expected hit.
+
+    Uses fixture_chat_source_min_score from golden_queries.json when set — the
+    7-job dev corpus scores below the production E5 band (ADR-0014 / ALE-138).
+    """
     client, collection_name = retrieval_qdrant
     golden_set = _load_golden_queries()
     top_k = golden_set["top_k"]
+    min_score = golden_set.get(
+        "fixture_chat_source_min_score", DEFAULT_CHAT_SOURCE_MIN_SCORE
+    )
 
     for case in golden_set["queries"]:
         country_filter = case.get("country")
@@ -98,7 +105,7 @@ def test_golden_queries_expected_jobs_survive_chat_source_min_score(retrieval_qd
         surviving_job_ids = [
             hit.payload["job_url_identifier"]
             for hit in results.points
-            if hit.score >= DEFAULT_CHAT_SOURCE_MIN_SCORE
+            if hit.score >= min_score
         ]
         missing = [
             job_id
@@ -108,7 +115,7 @@ def test_golden_queries_expected_jobs_survive_chat_source_min_score(retrieval_qd
 
         assert not missing, (
             f"Golden query '{case['id']}' lost expected job(s) {missing} "
-            f"below CHAT_SOURCE_MIN_SCORE={DEFAULT_CHAT_SOURCE_MIN_SCORE}. "
+            f"below CHAT_SOURCE_MIN_SCORE={min_score}. "
             f"Surviving: {surviving_job_ids}"
         )
 

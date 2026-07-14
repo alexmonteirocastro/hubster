@@ -8,7 +8,7 @@ Companion to the [README](../README.md) quick-start. Covers configuration, how i
 2. For each ID, it fetches `/api/jobs/single/{id}` and maps the response to a `JobOpportunity` model.
 3. HTML fields are converted to Markdown.
 4. A document string is built from the job title, company name, company description, and job description.
-5. Qdrant (via `qdrant-client[fastembed]`) embeds the text with `BAAI/bge-small-en-v1.5` and upserts points with metadata (role, location, remote, salary, equity, etc.).
+5. Qdrant Cloud Inference embeds the text with `intfloat/multilingual-e5-small` (via `qdrant-client` with `cloud_inference=True`) and upserts points with metadata (role, location, remote, salary, equity, etc.). See [ADR-0014](adr/0014-embedding-model-migration.md).
 
 ## Requirements
 
@@ -22,11 +22,11 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `QDRANT_URL` | Qdrant HTTP endpoint (required) | `http://localhost:6333` (host) / set automatically in Compose |
-| `QDRANT_API_KEY` | Qdrant Cloud API key (optional) | *(leave empty for local Qdrant)* |
+| `QDRANT_URL` | Qdrant HTTP endpoint (required). **Must be a Qdrant Cloud cluster URL** for embedding/search/ingestion — `intfloat/multilingual-e5-small` is not available via local FastEmbed ([ADR-0014](adr/0014-embedding-model-migration.md)). | `https://….cloud.qdrant.io` |
+| `QDRANT_API_KEY` | Qdrant Cloud API key (**required** for Cloud Inference) | *(set in `.env`)* |
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
-| `EMBEDDING_MODEL` | FastEmbed model ID (required) | `BAAI/bge-small-en-v1.5` |
+| `EMBEDDING_MODEL` | Qdrant Cloud Inference model ID (required) | `intfloat/multilingual-e5-small` |
 | `LLM_PROVIDER` | Generation backend for `/chat`: `gemini` (default), `ollama`, or `stub` | `gemini` |
 | `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when `LLM_PROVIDER=gemini`) | *(set in `.env`)* |
 | `GEMINI_MODEL` | Generation model name (optional) | `gemini-2.5-flash` |
@@ -43,9 +43,9 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
 | `HUB_CLIENT_TIMEOUT` | Per-request timeout in seconds (optional) | `30.0` |
 
-Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection.
+Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection. When `QDRANT_URL` points at Qdrant Cloud and `QDRANT_API_KEY` is set, `get_qdrant_client()` enables `cloud_inference=True` automatically.
 
-> In Docker Compose, `QDRANT_URL` is overridden to `http://qdrant:6333` so the app container reaches Qdrant by service name.
+> Docker Compose still includes a local `qdrant` service for legacy stack wiring, but **embedding, ingestion, and semantic search require your `.env` to point at Qdrant Cloud** under the current model. Do not rely on `http://localhost:6333` or the Compose-internal `http://qdrant:6333` URL for those paths.
 
 ## Ingestion
 
@@ -68,6 +68,7 @@ docker compose --profile ingestion run --rm ingestion python main.py --backfill
 |------|---------|-------------|
 | **Sync** (default) | `python main.py` | Scheduled runs — diffs live listings vs Qdrant, fetches detail only for new jobs, deletes delisted ones |
 | **Seed** | `python main.py --seed` | First-time bootstrap of an empty collection |
+| **Seed (reset)** | `python main.py --seed --reset` | Drop and recreate the collection, then full ingest (model migrations) |
 | **Backfill** | `python main.py --backfill` | One-time migration after deploying [ADR-0003](adr/0003-structured-job-title-company-metadata.md): adds `job_title`/`company` payload fields to points ingested before that change. Idempotent — safe to re-run. Use `--backfill-dev` for `QDRANT_DEV_COLLECTION_NAME`. In Docker: `docker compose --profile ingestion run --rm ingestion python main.py --backfill`. |
 
 Sync never drops the collection, so search stays available throughout. A second sync with no upstream changes makes zero detail fetches and zero Qdrant writes.
@@ -100,23 +101,24 @@ uv sync
 # or: pip install -e .
 ```
 
-**2. Start Qdrant**
-
-```bash
-docker run -p 6333:6333 -p 6334:6334 \
-  -v "$(pwd)/qdrant_data:/qdrant/storage" \
-  qdrant/qdrant
-```
-
-**3. Configure environment**
+**2. Configure environment (Qdrant Cloud required for embedding)**
 
 ```bash
 cp .env.example .env
 ```
 
-Ensure `QDRANT_URL=http://localhost:6333` is set in `.env`.
+Set at minimum:
 
-**4. Run ingestion**
+- `QDRANT_URL` — your Qdrant Cloud cluster URL (not `http://localhost:6333`)
+- `QDRANT_API_KEY` — cluster API key
+- `QDRANT_COLLECTION_NAME` / `QDRANT_DEV_COLLECTION_NAME` — distinct collection names
+- `EMBEDDING_MODEL=intfloat/multilingual-e5-small`
+- `HUBSTER_API_KEYS` — at least one bearer token for `/chat` and `/jobs/*`
+- `GEMINI_API_KEY` — if using `/chat` with the default Gemini provider
+
+`intfloat/multilingual-e5-small` is served via Qdrant Cloud Inference only — there is no local FastEmbed fallback ([ADR-0014](adr/0014-embedding-model-migration.md)). Ingestion, `/jobs/search`, and `/chat` retrieval all fail against a local Qdrant container with the current defaults.
+
+**3. Run ingestion**
 
 ```bash
 # Incremental sync (default)
@@ -125,11 +127,14 @@ uv run python main.py
 # Full bootstrap seed (first run only)
 uv run python main.py --seed
 
+# Drop + recreate + full seed (embedding model migration)
+uv run python main.py --seed --reset
+
 # One-time backfill after deploying ALE-81 (adds job_title/company to existing points)
 uv run python main.py --backfill
 ```
 
-**5. Run the API and frontend**
+**4. Run the API and frontend**
 
 API:
 
@@ -150,7 +155,7 @@ Open [http://localhost:5173](http://localhost:5173) for the chat UI. Job stats a
 
 ### REST API (local details)
 
-Requires `.env` with Qdrant settings and a running Qdrant instance. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`. Alternatives: `LLM_PROVIDER=stub` for instant deterministic answers (UI testing), or `LLM_PROVIDER=ollama` for local generation (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-generation-for-development)). When running the API in Docker Compose with Ollama on the host, set `OLLAMA_BASE_URL` to `host.docker.internal` — [Docker Compose + host Ollama](../CONTRIBUTING.md#docker-compose-host-ollama).
+Requires `.env` with Qdrant Cloud settings (`QDRANT_URL`, `QDRANT_API_KEY`, `EMBEDDING_MODEL`) and a seeded collection. Search uses the same `query_jobs_in_qdrant` path verified by the retrieval golden-set tests. `/chat` uses the provider-agnostic `llm_client` package described in [ADR-0001](adr/0001-llm-provider-strategy.md). By default it requires `GEMINI_API_KEY`. Alternatives: `LLM_PROVIDER=stub` for instant deterministic answers (UI testing), or `LLM_PROVIDER=ollama` for local generation (see [ADR-0007](adr/0007-local-generation-fallback-ollama-qwen3.md) and [CONTRIBUTING.md](../CONTRIBUTING.md#local-generation-for-development)). When running the API in Docker Compose with Ollama on the host, set `OLLAMA_BASE_URL` to `host.docker.internal` — [Docker Compose + host Ollama](../CONTRIBUTING.md#docker-compose-host-ollama).
 
 **CORS:** With the default `/api` same-origin proxy (see Frontend section below), the browser does not make cross-origin requests in normal Docker or Vite dev use. If you override `VITE_API_BASE_URL` to a full URL (e.g. `http://localhost:8000`), the frontend origin must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated; default `http://localhost:5173`).
 
@@ -318,7 +323,7 @@ Hubster has three test layers:
 - **Retrieval golden-set tests** — evaluate semantic search quality against a fixed query set in the dev Qdrant collection (`JOBS_DEV`). See [tests/README.md](../tests/README.md).
 - **Generation eval tests** — evaluate `/chat` wiring (retrieval → context → `Generator`) against the same dev collection with a scripted generator. No live Gemini calls. See [tests/README.md](../tests/README.md).
 
-The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/ci.yml) (`test.yml` on PRs, `deploy.yml` on `main`). CI runs unit tests (`-m "not retrieval and not generation"`) and retrieval/generation eval tests (against a Qdrant service container) in parallel jobs. Local runs use `uv sync --frozen --group dev` directly on the runner for faster feedback; the Docker `test` profile below remains the parity path for local/container runs.
+The unit test suite runs automatically on every push to `main` and on every pull request targeting `main` via [GitHub Actions](https://github.com/alexmonteirocastro/hubster/actions/workflows/ci.yml) (`test.yml` on PRs, `deploy.yml` on `main`). CI runs unit tests (`-m "not retrieval and not generation"`) and retrieval/generation eval tests in parallel jobs. **Retrieval/generation eval tests run against the real Qdrant Cloud cluster** (`JOBS_DEV` is dropped and re-seeded on each run) — see [ADR-0014](adr/0014-embedding-model-migration.md) and the comment on `retrieval-test` in `.github/workflows/ci.yml`. Local runs use `uv sync --frozen --group dev` directly on the runner; host-side pytest with the same Cloud `.env` is the parity path for retrieval/generation eval.
 
 ### Run unit tests
 
@@ -349,13 +354,13 @@ docker compose --profile test build test
 
 The test containers bind-mount source packages (`tests/`, `the_hub_client/`, `api/`, `db/`) but use the Linux virtualenv baked into the image — not your host `.venv`. This avoids stale cached volumes when dependencies change.
 
-Retrieval golden-set and generation eval tests (require Qdrant — see [tests/README.md](../tests/README.md)):
+Retrieval golden-set and generation eval tests (require Qdrant Cloud — see [tests/README.md](../tests/README.md)):
 
 ```bash
-docker compose --profile test run --rm test-retrieval
+uv run pytest -v -m "retrieval or generation"
 ```
 
-This runs both `@pytest.mark.retrieval` and `@pytest.mark.generation` tests.
+The Docker `test-retrieval` profile still targets a local `qdrant` service and **does not work** with `intfloat/multilingual-e5-small`; use host-side pytest with Cloud credentials instead.
 
 This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, edits under the mounted source packages apply without rebuilding the image (rebuild only when dependencies change).
 

@@ -9,7 +9,7 @@ uv sync --group dev
 uv run pytest -v -m "not retrieval and not generation"
 ```
 
-CI runs unit tests on every pull request and on every push to `main`. Retrieval golden-set and generation eval tests also run in CI against a Qdrant service container (see `.github/workflows/ci.yml`, invoked by `test.yml` and `deploy.yml`).
+CI runs unit tests on every pull request and on every push to `main`. Retrieval golden-set and generation eval tests also run in CI against **Qdrant Cloud** (`JOBS_DEV` is dropped and re-seeded each run — see [ADR-0014](../docs/adr/0014-embedding-model-migration.md) and `.github/workflows/ci.yml`).
 
 **Docker:**
 
@@ -25,28 +25,22 @@ Evaluate semantic search quality in isolation via `query_jobs_in_qdrant`, using 
 
 ### Prerequisites
 
-1. Qdrant running locally (e.g. `docker compose up qdrant` or the standalone `docker run` from the root README).
-2. `.env` configured with `QDRANT_URL`, `EMBEDDING_MODEL`, and distinct values for `QDRANT_COLLECTION_NAME` and `QDRANT_DEV_COLLECTION_NAME`.
+1. `.env` pointing at **Qdrant Cloud** with `QDRANT_URL`, `QDRANT_API_KEY`, and `EMBEDDING_MODEL=intfloat/multilingual-e5-small` (required — E5 has no local FastEmbed path; see [ADR-0014](../docs/adr/0014-embedding-model-migration.md)).
+2. Distinct values for `QDRANT_COLLECTION_NAME` and `QDRANT_DEV_COLLECTION_NAME`.
 
 ### Run retrieval tests
 
-**Local (host):**
+**Local (host — recommended):**
 
 ```bash
 uv run pytest -v -m retrieval
 ```
 
-**Docker:**
-
-```bash
-docker compose --profile test run --rm test-retrieval
-```
-
-The `test-retrieval` service waits for Qdrant to be healthy and sets `QDRANT_URL=http://qdrant:6333` inside the container. Qdrant is started automatically via `depends_on`; you can also bring it up first with `docker compose up -d qdrant`.
-
-If Qdrant is not reachable (host runs only), retrieval tests are skipped automatically.
+If Qdrant Cloud is not reachable or `.env` is misconfigured, retrieval tests are skipped automatically.
 
 The test session seeds `tests/fixtures/golden_jobs.json` into the dev collection, runs each query in `tests/fixtures/golden_queries.json`, and asserts every expected `job_id` appears in the configured top-k.
+
+> **Note:** `docker compose --profile test run --rm test-retrieval` still targets a local `qdrant` service and does **not** work with the current embedding model. Use host-side pytest with Cloud credentials instead.
 
 ### Seed the dev collection from live Hub data
 
@@ -56,7 +50,7 @@ For manual exploration or regenerating the golden set against real listings:
 uv run python main.py --seed-dev
 ```
 
-This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of Denmark listings via the normal ingestion path.
+This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of Denmark listings via the normal ingestion path. Requires Qdrant Cloud `.env` (same as retrieval tests). Avoid running while CI is re-seeding the same `JOBS_DEV` collection.
 
 ### Update the golden set
 
@@ -65,6 +59,7 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
    - `query` — natural-language search text
    - `expected_job_ids` — Hub job IDs that must appear in top-k
    - `top_k` — how many results to inspect (default `5`)
+   - `fixture_chat_source_min_score` — score floor for the 7-job dev corpus (production default is `0.85` in `db/settings.py`)
 3. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all cases pass.
 
 If you reseed from live data with `--seed-dev`, pick real `job_id` values from that collection when updating `expected_job_ids`.
@@ -75,7 +70,7 @@ Evaluate `/chat` orchestration (retrieval → context assembly → `Generator` i
 
 ### Prerequisites
 
-Same as retrieval tests: local Qdrant, `.env` with distinct production/dev collection names.
+Same as retrieval tests: Qdrant Cloud `.env` with distinct production/dev collection names.
 
 ### Run generation eval tests
 
@@ -85,10 +80,10 @@ Same as retrieval tests: local Qdrant, `.env` with distinct production/dev colle
 uv run pytest -v -m generation
 ```
 
-**Docker (combined with retrieval):**
+Or combined with retrieval:
 
 ```bash
-docker compose --profile test run --rm test-retrieval
+uv run pytest -v -m "retrieval or generation"
 ```
 
 ### Update the generation eval set
@@ -110,5 +105,6 @@ For eval work not covered by pytest:
 
 - **Fixture comparison** — side-by-side scores for two models against `golden_jobs.json` / `golden_queries.json`
 - **Production-scale E5 eval** — read-only scroll of `JOBS_ON_THE_HUB`, re-embed under E5, manual top-5 review + score distributions for `CHAT_SOURCE_MIN_SCORE` calibration
+- **Token-length check** — read-only scroll of production `document_text`, E5 tokenizer stats vs the 512-token window
 
 See **[`scripts/README.md`](../scripts/README.md)** for prerequisites, commands, and how to read the output.
