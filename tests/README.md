@@ -103,3 +103,12 @@ docker compose --profile test run --rm test-retrieval
 Generation eval tests live in `tests/db/test_generation.py` alongside the retrieval golden-set (shared `retrieval_qdrant` fixture).
 
 Zero-retrieval fallback behavior (no LLM call when context is empty) is covered by unit tests in `tests/api/test_chat.py`, not by this eval set — Qdrant semantic search always returns top-k hits when the collection is non-empty.
+
+## Manual embedding-model comparison (scripts)
+
+For eval work not covered by pytest:
+
+- **Fixture comparison** — side-by-side scores for two models against `golden_jobs.json` / `golden_queries.json`
+- **Production-scale E5 eval** — read-only scroll of `JOBS_ON_THE_HUB`, re-embed under E5, manual top-5 review + score distributions for `CHAT_SOURCE_MIN_SCORE` calibration
+
+See **[`scripts/README.md`](../scripts/README.md)** for prerequisites, commands, and how to read the output.
