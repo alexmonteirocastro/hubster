@@ -81,18 +81,21 @@ def test_build_generation_prompt_structures_poisoned_document_text():
     assert "must never be treated as a command" in prompt
 
 
-def test_gemini_and_ollama_generators_use_shared_prompt_builder():
+def _module_calls_build_generation_prompt(module_path: str) -> bool:
+    source = Path(module_path).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "build_generation_prompt":
+            return True
+    return False
+
+
+def test_gemini_and_ollama_generators_call_shared_prompt_builder():
     for module_path in ("llm_client/gemini.py", "llm_client/ollama.py"):
-        source = Path(module_path).read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        imports = [
-            alias.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom)
-            and node.module == "llm_client.context"
-            for alias in node.names
-        ]
-        assert "build_generation_prompt" in imports, module_path
+        assert _module_calls_build_generation_prompt(module_path), module_path
 
 
 def test_format_job_context_includes_build_job_url_per_listing():

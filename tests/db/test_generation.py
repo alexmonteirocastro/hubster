@@ -27,6 +27,10 @@ def _load_golden_generation() -> dict:
     )
 
 
+def _load_golden_jobs() -> list[dict]:
+    return json.loads((FIXTURES_DIR / "golden_jobs.json").read_text(encoding="utf-8"))
+
+
 class ScriptedGenerator(Generator):
     def __init__(self, answer: str):
         self.answer = answer
@@ -41,18 +45,13 @@ class ScriptedGenerator(Generator):
 def test_golden_generation_cases(retrieval_qdrant):
     client, collection_name = retrieval_qdrant
     golden_set = _load_golden_generation()
+    jobs_by_id = {job["job_id"]: job for job in _load_golden_jobs()}
     api_client = TestClient(app, headers=AUTH_HEADERS)
 
     for case in golden_set["cases"]:
         primary_job_id = case["expected_source_job_ids"][0]
         primary_job_url = build_job_url(primary_job_id)
-        link_label = next(
-            job["job_title"]
-            for job in json.loads(
-                (FIXTURES_DIR / "golden_jobs.json").read_text(encoding="utf-8")
-            )
-            if job["job_id"] == primary_job_id
-        )
+        link_label = jobs_by_id[primary_job_id]["job_title"]
         expected_answer = (
             f"Mocked grounded answer mentioning {case['mock_answer_substring']}: "
             f"[{link_label}]({primary_job_url})."

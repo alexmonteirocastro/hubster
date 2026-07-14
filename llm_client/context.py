@@ -10,6 +10,8 @@ NO_MATCHING_JOBS_MESSAGE = (
 
 _MARKDOWN_LINK_URL_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 _MARKDOWN_LINK_FULL_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+# Skip very short link labels (e.g. "QA", "Go") — substring match false-positives.
+_MIN_GROUNDED_LABEL_LENGTH = 3
 
 _SYSTEM_INSTRUCTION = (
     "You are a job search assistant for The Hub (Nordic and European startup jobs). "
@@ -74,6 +76,10 @@ def find_ungrounded_job_detail_phrases(
 
     Extends ADR-0009's link-URL check (ADR-0012 Decision 2): fabricated job
     titles or company names in link text are flagged even when the URL is valid.
+
+    Scope is link labels only — hallucinated job details in free prose outside
+    markdown links are intentionally out of scope (no second LLM call; reuses
+    ADR-0009's link extraction infra rather than scanning all answer text).
     """
     if not source_document_texts:
         return []
@@ -83,7 +89,7 @@ def find_ungrounded_job_detail_phrases(
 
     for match in _MARKDOWN_LINK_FULL_RE.finditer(answer):
         label = match.group(1).strip()
-        if len(label) < 3:
+        if len(label) < _MIN_GROUNDED_LABEL_LENGTH:
             continue
         if label.casefold() not in corpus:
             ungrounded.append(label)
