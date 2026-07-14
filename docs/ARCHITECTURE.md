@@ -175,7 +175,7 @@ npm run dev
 
 | Config | Used when | Proxy read timeout | `/api/chat` limiting |
 |---|---|---|---|
-| `nginx.conf` | Production Docker image default (no dev override mounted) | **90s** — sized to Gemini's full retry envelope (`GEMINI_MAX_RETRIES=3` + backoff), not single-request `GEMINI_TIMEOUT` | `limit_conn` (5 concurrent/IP) + `limit_req` (15/min, burst 5) — defense-in-depth alongside ADR-0006's app-level slowapi limiter |
+| `nginx.conf` | Production Docker image default (no dev override mounted) | **90s** — sized to Gemini's full retry envelope (`GEMINI_MAX_RETRIES=3` + backoff), not single-request `GEMINI_TIMEOUT` | `limit_conn` (5 concurrent/IP) + `limit_req` (15/min, burst 5 — looser than default `CHAT_RATE_LIMIT=10/minute` so app-level 429 runs first) — defense-in-depth alongside ADR-0006's slowapi limiter; both layers return **429** on rejection |
 | `nginx.dev.conf` | Local `docker compose up` (mounted via `docker-compose.override.yml`) | **600s** — preserves slow local Ollama generation (ALE-111) | None |
 
 Via Docker Compose, the `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=/api` by default (override via `.env` or Compose build args).
