@@ -133,7 +133,15 @@ def test_generation_eval_poisoned_document_text_good_answer_ignores_injection(
     )
     api_client = TestClient(app, headers=AUTH_HEADERS)
 
-    with patch("api.main.get_generator", return_value=scripted):
+    llm_settings = SimpleNamespace(
+        llm_provider="gemini",
+        ollama_max_chars_per_job=1200,
+    )
+
+    with (
+        patch("api.main.get_llm_settings", return_value=llm_settings),
+        patch("api.main.get_generator", return_value=scripted),
+    ):
         response = api_client.post("/chat", json={"question": "any backend roles?"})
 
     assert response.status_code == 200
