@@ -91,10 +91,11 @@ This ADR's scope is narrow and deliberate: **unblock deployment without regressi
 - Full re-seed of `JOBS_ON_THE_HUB` (~1,015 points) is required — a real one-time cost, not free, though bounded and well-understood (mirrors the cost profile of prior full-seed operations in this project).
 - Retrieval-precision failure modes (role/geo confusion) persist unchanged — explicitly accepted per Decision 5, tracked separately under ADR-0010/ADR-0002, not resolved here.
 - `0.85` is a starting value, not a fully validated production number — real-traffic monitoring (once ALE-127/ALE-128's observability spikes land) is needed to confirm or adjust it.
+- **CI retrieval/generation eval tests use the real Qdrant Cloud cluster**, not an ephemeral local container. Each run drops and re-seeds `JOBS_DEV` via Cloud Inference (recurring token usage on every PR and every merge to `main`). Manual `--seed-dev` against the same cluster can collide with an in-flight CI run. Accepted tradeoff: E5 has no local embedding path, so CI must hit Cloud; quota impact is tracked under the Cloud Inference revisit trigger below.
 
 ## Revisit triggers
 
 - If production monitoring shows `CHAT_SOURCE_MIN_SCORE=0.85` dropping too many legitimate hits or admitting too much noise, adjust within the ~0.84–0.87 range identified by ALE-138's findings before considering a more structural fix.
 - If role/geo confusion complaints become frequent enough to affect product usability materially, treat that as evidence to prioritize ADR-0010 (hybrid search) sooner — this ADR doesn't change that priority on its own, but real usage evidence should.
-- If Qdrant Cloud Inference's free-tier token allowance (per-model, monthly) is approached or exceeded under real traffic, revisit whether the Render Standard alternative (Decision Alternatives, above) becomes the better tradeoff after all.
+- If Qdrant Cloud Inference's free-tier token allowance (per-model, monthly) is approached or exceeded under real traffic **or recurring CI retrieval/generation runs**, revisit whether the Render Standard alternative (Decision Alternatives, above) becomes the better tradeoff after all.
 - If `intfloat/multilingual-e5-small` is later added to local FastEmbed's registry, revisit whether ingestion should move off Cloud Inference back to local embedding (removing Cloud Inference token cost for the ingestion path specifically) — not urgent, but worth a cheap re-check if it happens.

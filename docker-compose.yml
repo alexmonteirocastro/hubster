@@ -1,4 +1,6 @@
 services:
+  # Legacy local Qdrant — not used for embedding under intfloat/multilingual-e5-small
+  # (Cloud Inference required). Kept for stack health wiring; see ADR-0014.
   qdrant:
     image: qdrant/qdrant:latest
     ports:
@@ -21,8 +23,6 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    environment:
-      QDRANT_URL: http://qdrant:6333
     depends_on:
       qdrant:
         condition: service_healthy
@@ -65,8 +65,6 @@ services:
       - ingestion
     env_file:
       - .env
-    environment:
-      QDRANT_URL: http://qdrant:6333
     depends_on:
       qdrant:
         condition: service_healthy
@@ -89,8 +87,6 @@ services:
       - test
     env_file:
       - .env
-    environment:
-      QDRANT_URL: http://qdrant:6333
     depends_on:
       qdrant:
         condition: service_healthy

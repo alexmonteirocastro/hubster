@@ -48,6 +48,7 @@ from db import (  # noqa: E402
     load_jobs_into_qdrant,
     query_jobs_in_qdrant,
 )
+from db.settings import uses_cloud_inference  # noqa: E402
 from the_hub_client import CountryCode, JobOpportunity  # noqa: E402
 
 FIXTURES_DIR = _REPO_ROOT / "tests" / "fixtures"
@@ -86,17 +87,10 @@ def _is_local_qdrant() -> bool:
     return settings.qdrant_api_key is None and host in {"localhost", "127.0.0.1", "::1"}
 
 
-def _uses_cloud_inference() -> bool:
-    settings = get_settings()
-    host = urlparse(settings.qdrant_url).hostname or ""
-    is_cloud_host = host not in {"", "localhost", "127.0.0.1", "::1"}
-    return is_cloud_host and settings.qdrant_api_key is not None
-
-
 def _get_comparison_client() -> QdrantClient:
     """Return a Qdrant client configured for this spike's embedding path."""
     settings = get_settings()
-    if _uses_cloud_inference():
+    if uses_cloud_inference(settings):
         print(
             "Qdrant Cloud detected — using Cloud Inference "
             "(cloud_inference=True on QdrantClient)."
@@ -113,15 +107,14 @@ def _get_comparison_client() -> QdrantClient:
 
 def _validate_qdrant_config() -> None:
     settings = get_settings()
-    host = urlparse(settings.qdrant_url).hostname or ""
-    is_cloud_host = host not in {"", "localhost", "127.0.0.1", "::1"}
-    if is_cloud_host and settings.qdrant_api_key is None:
-        raise ValueError(
-            f"QDRANT_URL points at Qdrant Cloud ({settings.qdrant_url}) but "
-            "QDRANT_API_KEY is not set. Add your cluster API key to .env, or "
-            "point QDRANT_URL at local Qdrant (http://localhost:6333) for "
-            "FastEmbed-only comparison."
-        )
+    if uses_cloud_inference(settings) or _is_local_qdrant():
+        return
+    raise ValueError(
+        f"QDRANT_URL points at Qdrant Cloud ({settings.qdrant_url}) but "
+        "QDRANT_API_KEY is not set. Add your cluster API key to .env, or "
+        "point QDRANT_URL at local Qdrant (http://localhost:6333) for "
+        "FastEmbed-only comparison."
+    )
 
 
 def _fastembed_supported_models() -> set[str]:
@@ -347,7 +340,7 @@ def main() -> int:
         sys.exit(1)
 
     local_mode = _is_local_qdrant()
-    cloud_mode = _uses_cloud_inference()
+    cloud_mode = uses_cloud_inference()
     if cloud_mode:
         print("Resolving model names for Qdrant Cloud Inference.")
     elif local_mode:

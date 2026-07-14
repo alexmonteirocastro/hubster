@@ -138,6 +138,8 @@ def get_qdrant_client() -> QdrantClient:
         kwargs["api_key"] = settings.qdrant_api_key
     if uses_cloud_inference(settings):
         kwargs["cloud_inference"] = True
+        # Skip client/server version skew checks; cloud_inference path does not
+        # load local FastEmbed models (see qdrant-client #1024 / ADR-0014).
         kwargs["check_compatibility"] = False
     client = QdrantClient(**kwargs)
     if not uses_cloud_inference(settings):

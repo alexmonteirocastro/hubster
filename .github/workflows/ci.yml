@@ -42,6 +42,9 @@ jobs:
         run: uv run pytest -v -m "not retrieval and not generation"
 
   retrieval-test:
+    # ADR-0014: E5 has no local FastEmbed path — eval tests hit Qdrant Cloud and
+    # drop/re-seed JOBS_DEV on every run (Cloud Inference token usage). Avoid
+    # manual --seed-dev against the same cluster while CI is running.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:

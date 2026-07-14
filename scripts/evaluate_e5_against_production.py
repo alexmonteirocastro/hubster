@@ -40,7 +40,6 @@ import statistics
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urlparse
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
@@ -50,6 +49,7 @@ from qdrant_client import QdrantClient, models  # noqa: E402
 
 from db import create_collection, get_settings, query_jobs_in_qdrant  # noqa: E402
 from db.database import get_vector_name, job_id_to_point_id  # noqa: E402
+from db.settings import uses_cloud_inference  # noqa: E402
 from the_hub_client import CountryCode  # noqa: E402
 
 E5_MODEL = "intfloat/multilingual-e5-small"
@@ -74,23 +74,8 @@ class ProductionQueryResult:
     top_hits: list[tuple[float, str, str, str]] = field(default_factory=list)
 
 
-def _uses_cloud_inference() -> bool:
-    settings = get_settings()
-    host = urlparse(settings.qdrant_url).hostname or ""
-    is_cloud_host = host not in {"", "localhost", "127.0.0.1", "::1"}
-    return is_cloud_host and settings.qdrant_api_key is not None
-
-
 def _validate_config() -> None:
-    settings = get_settings()
-    host = urlparse(settings.qdrant_url).hostname or ""
-    is_cloud_host = host not in {"", "localhost", "127.0.0.1", "::1"}
-    if is_cloud_host and settings.qdrant_api_key is None:
-        raise ValueError(
-            f"QDRANT_URL points at Qdrant Cloud ({settings.qdrant_url}) but "
-            "QDRANT_API_KEY is not set."
-        )
-    if not _uses_cloud_inference():
+    if not uses_cloud_inference():
         raise ValueError(
             f"{E5_MODEL} requires Qdrant Cloud Inference. "
             "Point QDRANT_URL and QDRANT_API_KEY at your Cloud cluster."
