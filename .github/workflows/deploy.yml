@@ -14,6 +14,9 @@ jobs:
   deploy:
     needs: ci
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-main
+      cancel-in-progress: false
     steps:
       - name: Trigger Render deploy
         run: curl -sf -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
