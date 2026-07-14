@@ -28,6 +28,21 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --group dev
 
+FROM python:3.12-slim-bookworm AS test
+
+WORKDIR /app
+
+RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app
+
+COPY --from=builder-test --chown=app:app /app /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    HOME="/home/app"
+
+USER app
+
+CMD ["pytest", "-v"]
+
 FROM python:3.12-slim-bookworm AS runtime
 
 WORKDIR /app
@@ -44,18 +59,3 @@ USER app
 EXPOSE 8000
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-FROM python:3.12-slim-bookworm AS test
-
-WORKDIR /app
-
-RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app
-
-COPY --from=builder-test --chown=app:app /app /app
-
-ENV PATH="/app/.venv/bin:$PATH" \
-    HOME="/home/app"
-
-USER app
-
-CMD ["pytest", "-v"]
