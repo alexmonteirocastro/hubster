@@ -1,0 +1,28 @@
+---
+description: Git merge and PR workflow — preserve branch commit history
+alwaysApply: true
+---
+
+# Git merge and PR workflow
+
+When merging pull requests, **preserve the branch's commit history**.
+
+## Merge method
+
+- **Default:** merge commit — `gh pr merge <number> --merge`
+- **Never use `--squash`** unless the user explicitly asks for a squash merge
+- **Never use `--rebase`** unless the user explicitly asks for rebase merge
+
+## Examples
+
+```bash
+# ✅ Default — merge commit, keeps branch commits on main
+gh pr merge 51 --merge --delete-branch
+
+# ❌ Do not use unless explicitly requested
+gh pr merge 51 --squash --delete-branch
+```
+
+## Rationale
+
+Squash merges collapse branch history into one commit. This project keeps per-commit history on `main` for traceability (ticket refs, review follow-ups, etc.).
