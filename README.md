@@ -1,6 +1,6 @@
 # Hubster
 
-![Tests](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml/badge.svg)
+![Tests](https://github.com/alexmonteirocastro/hubster/actions/workflows/test.yml/badge.svg) ![Deploy](https://github.com/alexmonteirocastro/hubster/actions/workflows/deploy.yml/badge.svg)
 
 Hubster ingests job listings from [The Hub](https://thehub.io/) via their public API, embeds the content with FastEmbed, and stores the results in [Qdrant](https://qdrant.tech/) for semantic search — with a `/chat` RAG layer and React UI for natural-language job discovery across Nordic/European startup markets.
 
