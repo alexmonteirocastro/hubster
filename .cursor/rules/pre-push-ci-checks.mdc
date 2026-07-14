@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Pre-push CI checks
 
-Before `git push` or `gh pr create`, run the same checks CI enforces (`.github/workflows/test.yml`). Do not push if any step fails — fix first, then push.
+Before `git push` or `gh pr create`, run the same checks CI enforces (`.github/workflows/ci.yml`, invoked by `test.yml` on PRs and `deploy.yml` on `main`). Do not push if any step fails — fix first, then push.
 
 ## Backend (unit-test job)
 

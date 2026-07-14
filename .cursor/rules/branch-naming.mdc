@@ -7,18 +7,20 @@ alwaysApply: true
 
 Format: <type>/ALE-<NNN>-<short-slug>
 
-- type: one of feat, fix, docs, chore, spike, refactor, test
+- type: one of feat, fix, docs, chore, spike, refactor, test, ci
 - ALE-NNN: the Linear ticket ID this branch implements — required, exact case (e.g. ALE-125)
 - short-slug: 3-6 words, kebab-case, derived from the Linear ticket title
 
 Rules:
 - Never create a branch without a known ALE-NNN ticket ID. If none is given, ask rather than guessing or omitting it.
 - Use "docs/" for ADR-landing / documentation tickets, even if the diff touches code.
+- Use "ci/" for GitHub Actions, workflow, and other CI/CD pipeline changes.
 - Use "feat/" or "fix/" for implementation tickets.
 - One branch per ticket — do not combine frontend and backend work from separate tickets into one branch.
 - All lowercase, hyphen-separated, no underscores, no spaces.
 
 Examples:
 - feat/ALE-126-deploy-render-cloudflare
+- ci/ALE-137-gate-render-deploy-behind-testyml
 - docs/ALE-125-adr-0013-deployment-doc
 - feat/ALE-121-frontend-auth-lock-modal

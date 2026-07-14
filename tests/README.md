@@ -9,7 +9,7 @@ uv sync --group dev
 uv run pytest -v -m "not retrieval and not generation"
 ```
 
-CI runs unit tests on every push and pull request. Retrieval golden-set and generation eval tests also run in CI against a Qdrant service container (see `.github/workflows/test.yml`).
+CI runs unit tests on every pull request and on every push to `main`. Retrieval golden-set and generation eval tests also run in CI against a Qdrant service container (see `.github/workflows/ci.yml`, invoked by `test.yml` and `deploy.yml`).
 
 **Docker:**
 

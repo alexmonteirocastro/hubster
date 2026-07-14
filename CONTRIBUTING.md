@@ -4,7 +4,7 @@ This guide covers code-quality tooling and the checks to run before opening a pu
 
 ## Code quality
 
-CI enforces lint, format, and type checks on every push to `main` and on every pull request targeting `main` (`.github/workflows/test.yml`, `unit-test` job). Run the same commands locally before pushing to catch failures early.
+CI enforces lint, format, and type checks on every push to `main` and on every pull request targeting `main` (shared jobs in `.github/workflows/ci.yml`: `test.yml` on PRs, `deploy.yml` on `main`; see `unit-test` job). Run the same commands locally before pushing to catch failures early.
 
 ### Prerequisites
 
@@ -172,9 +172,12 @@ Use `LLM_PROVIDER=stub` for rapid UI iteration; use Ollama when you specifically
 
 ### CI summary
 
+Shared jobs live in `.github/workflows/ci.yml`. `test.yml` runs them on pull requests; `deploy.yml` runs them on pushes to `main` and triggers Render deploy after CI passes.
+
 | Job | Code-quality checks |
 |-----|---------------------|
 | `unit-test` | `ruff check .`, `ruff format --check .`, `mypy .`, unit pytest |
 | `frontend-test` | `npm run lint`, Vitest |
 | `retrieval-test` | retrieval/generation eval pytest only (no lint/type checks) |
 | `markdown-link-check` | lychee offline check on `**/*.md` (relative paths and anchors only) |
+| `deploy` (`deploy.yml` only) | POST to `RENDER_DEPLOY_HOOK_URL` after `ci` succeeds |
