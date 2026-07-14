@@ -169,7 +169,14 @@ npm install
 npm run dev
 ```
 
-`VITE_API_BASE_URL` defaults to `/api` — a same-origin path proxied to the backend. In Vite dev (`npm run dev`), the proxy target is `http://localhost:8000`. In Docker, the frontend nginx container proxies `/api/` to the `api` service with a 10-minute read timeout (long enough for slow local Ollama runs).
+`VITE_API_BASE_URL` defaults to `/api` — a same-origin path proxied to the backend. In Vite dev (`npm run dev`), the proxy target is `http://localhost:8000`. In Docker, the frontend nginx container proxies `/api/` to the `api` service.
+
+**Nginx proxy timeouts and limiting** (`frontend/nginx.conf` vs `frontend/nginx.dev.conf`):
+
+| Config | Used when | Proxy read timeout | `/api/chat` limiting |
+|---|---|---|---|
+| `nginx.conf` | Production Docker image default (no dev override mounted) | **90s** — sized to Gemini's full retry envelope (`GEMINI_MAX_RETRIES=3` + backoff), not single-request `GEMINI_TIMEOUT` | `limit_conn` (5 concurrent/IP) + `limit_req` (15/min, burst 5 — looser than default `CHAT_RATE_LIMIT=10/minute` so app-level 429 runs first) — defense-in-depth alongside ADR-0006's slowapi limiter; both layers return **429** on rejection |
+| `nginx.dev.conf` | Local `docker compose up` (mounted via `docker-compose.override.yml`) | **600s** — preserves slow local Ollama generation (ALE-111) | None |
 
 Via Docker Compose, the `frontend` service is included in `docker compose up --build` and serves the production build at [localhost:5173](http://localhost:5173). The image is built with `VITE_API_BASE_URL=/api` by default (override via `.env` or Compose build args).
 
@@ -353,7 +360,7 @@ Tests live under `tests/` and use `responses` to mock HTTP at the Hub client bou
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
-- [ ] Revisit frontend/API proxy timeouts (currently 600s for local Ollama) before any non-local deployment — long-held connections are acceptable for prototype CPU inference only
+- [ ] Revisit frontend dev proxy + client timeouts (Vite / `CHAT_REQUEST_TIMEOUT_MS`) — backend nginx half done in ALE-130; frontend tracked on ALE-131
 - [ ] Split dev/eval tooling (`seed_dev_qdrant_db`) out of `db/db_utils.py` into its own module
 - [x] Rate limiting and retry logic for API calls
 - [ ] Backoff jitter and retry metrics for outbound Hub API calls (before parallel ingestion)

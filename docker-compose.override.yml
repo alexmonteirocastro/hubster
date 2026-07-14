@@ -37,3 +37,7 @@ services:
       - ./api:/app/api
       - ./db:/app/db
       - ./llm_client:/app/llm_client
+
+  frontend:
+    volumes:
+      - ./frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
