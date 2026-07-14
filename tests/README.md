@@ -106,6 +106,9 @@ Zero-retrieval fallback behavior (no LLM call when context is empty) is covered 
 
 ## Manual embedding-model comparison (scripts)
 
-For side-by-side score comparison of two candidate embedding models (not covered by pytest), use the standalone scripts in `scripts/`. They seed the same golden fixture corpus, print per-query scores and noise margins, and help derive `CHAT_SOURCE_MIN_SCORE` for a new model.
+For eval work not covered by pytest:
+
+- **Fixture comparison** — side-by-side scores for two models against `golden_jobs.json` / `golden_queries.json`
+- **Production-scale E5 eval** — read-only scroll of `JOBS_ON_THE_HUB`, re-embed under E5, manual top-5 review + score distributions for `CHAT_SOURCE_MIN_SCORE` calibration
 
 See **[`scripts/README.md`](../scripts/README.md)** for prerequisites, commands, and how to read the output.

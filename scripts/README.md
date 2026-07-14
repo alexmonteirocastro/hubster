@@ -108,7 +108,7 @@ Added in ALE-138 (`feat/ALE-138-compare-embedding-models`). Findings posted on t
 
 ## 3. E5 evaluation against the real production corpus
 
-For score distributions and manual relevance review at production scale (~961 jobs), without fixture ground truth:
+For score distributions and manual relevance review at production scale (full `JOBS_ON_THE_HUB` collection — 1,015 points at time of ALE-138), without fixture ground truth:
 
 ```bash
 # Fast smoke test (first 100 production jobs)
@@ -127,3 +127,20 @@ uv run python scripts/evaluate_e5_against_production.py
 5. **Aggregate score stats** — min/max/mean/median of top-1 and rank-5 scores to inform `CHAT_SOURCE_MIN_SCORE`.
 
 Requires **Qdrant Cloud** (`cloud_inference=True`). Use `--keep-collection` to inspect results in the Qdrant console afterward.
+
+Run the smoke test first to confirm Cloud Inference connectivity; use the full run (no `--limit`) before locking a `CHAT_SOURCE_MIN_SCORE` for a model switch.
+
+### ALE-138 findings (production full run, Jul 2026)
+
+Evaluated against 1,015 real jobs under `intfloat/multilingual-e5-small`:
+
+| Metric | Top-1 | Rank-5 |
+|---|---:|---:|
+| min | 0.838 | 0.832 |
+| max | 0.879 | 0.874 |
+| mean | 0.866 | 0.852 |
+| median | 0.870 | 0.853 |
+
+**Provisional `CHAT_SOURCE_MIN_SCORE` for E5-small: `0.85`** (tunable 0.84–0.87). The current BGE default (`0.70` in `db/settings.py`) does not transfer. Top-1 and rank-5 scores overlap (margin ≈ −0.036), so any hard cutoff is lossy — validate after re-seed with `pytest -m retrieval`.
+
+**Spike recommendation:** standardize on `intfloat/multilingual-e5-small` via Cloud Inference over MiniLM. Full findings on Linear ticket ALE-138.
