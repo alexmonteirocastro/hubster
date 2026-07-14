@@ -221,9 +221,7 @@ def format_linear_comment(stats: TokenLengthStats, *, collection_name: str) -> s
             "scope; open a separate spike if we want to quantify retrieval impact."
         )
 
-    cloud_docs = (
-        "https://qdrant.tech/documentation/inference/cloud-inference/"
-    )
+    cloud_docs = "https://qdrant.tech/documentation/inference/cloud-inference/"
     return f"""## E5 document_text token-length check (ALE-140 follow-up)
 
 Read-only scroll of `{collection_name}` ({stats.corpus_size} points with

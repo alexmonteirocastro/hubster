@@ -38,6 +38,7 @@ jobs:
           QDRANT_URL: http://localhost:6333
           QDRANT_COLLECTION_NAME: JOBS_ON_THE_HUB
           EMBEDDING_MODEL: intfloat/multilingual-e5-small
+          HUBSTER_API_KEYS: test-api-key
         run: uv run pytest -v -m "not retrieval and not generation"
 
   retrieval-test:
