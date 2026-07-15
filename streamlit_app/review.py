@@ -16,6 +16,10 @@ from llm_client.exceptions import (
     GenerationRateLimitError,
     GenerationUnavailableError,
 )
+from streamlit_app.collections import (
+    REVIEW_COLLECTION_CANDIDATES,
+    existing_review_collections,
+)
 from streamlit_app.judgments import (
     Judgment,
     Tag,
@@ -26,20 +30,6 @@ from streamlit_app.judgments import (
 )
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import build_job_url
-
-REVIEW_COLLECTION_CANDIDATES = ("JOBS_DEV", "JOBS_ON_THE_HUB")
-
-
-def _existing_review_collections() -> list[str]:
-    """Return candidate collections that currently exist on the configured Qdrant.
-
-    Lets connection / API errors propagate so the Review tab can show a
-    "Qdrant unreachable" message instead of a false "collection missing" warning.
-    """
-    client = get_qdrant_client()
-    return [
-        name for name in REVIEW_COLLECTION_CANDIDATES if client.collection_exists(name)
-    ]
 
 
 def _payload_source(score: float, payload: dict[str, Any]) -> dict[str, Any]:
@@ -179,7 +169,7 @@ def render_review_tab() -> None:
 
     st.subheader("Run a review query")
     try:
-        collections = _existing_review_collections()
+        collections = existing_review_collections()
     except (UnexpectedResponse, ConnectionError, TimeoutError, OSError) as exc:
         st.error(f"Cannot list Qdrant collections: {exc}")
         return
