@@ -63,7 +63,7 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
 3. Optional `role_confusion_cases` — adversarial role/topic pairs (ALE-151):
    - `query` — natural-language search text
    - `expected_job_ids` — the correct role match that must rank highest and survive the floor
-   - `confuser_job_ids` — semantically similar but wrong-role jobs that must not outrank the expected match or pass `min_score`
+   - `confuser_job_ids` — semantically similar but wrong-role jobs that must not outrank the expected match or pass `min_score` (checked only if returned in top-k; absence from top-k is fine)
    - `min_score` — production floor to assert against (default `0.85`)
    - Covered by `test_role_confusion_cases` (currently `xfail` until ALE-143 is verified)
 4. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all non-xfail cases pass.
