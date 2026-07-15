@@ -40,6 +40,13 @@ class OllamaGenerator(Generator):
         self._settings = settings
         self._session = session or requests.Session()
 
+    @property
+    def settings(self) -> LLMSettings:
+        return self._settings
+
+    def max_chars_per_job(self) -> int | None:
+        return self._settings.ollama_max_chars_per_job
+
     def generate(self, context: str, question: str) -> str:
         prompt = build_generation_prompt(context, question)
         url = f"{native_ollama_base_url(self._settings.ollama_base_url)}/api/chat"

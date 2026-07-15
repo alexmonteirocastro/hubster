@@ -185,16 +185,16 @@ def test_build_generator_ollama_model_label() -> None:
     base = _llm_settings(ollama_model="qwen3:4b")
     generator = build_generator("ollama:qwen3:8b", base_settings=base)
     assert isinstance(generator, OllamaGenerator)
-    assert generator._settings.ollama_model == "qwen3:8b"
-    assert generator._settings.llm_provider == "ollama"
+    assert generator.settings.ollama_model == "qwen3:8b"
+    assert generator.settings.llm_provider == "ollama"
 
 
 def test_build_generator_gemini_model_label() -> None:
     base = _llm_settings(llm_provider="gemini", gemini_model="gemini-2.5-flash")
     generator = build_generator("gemini:gemini-2.0-flash", base_settings=base)
     assert isinstance(generator, GeminiGenerator)
-    assert generator._settings.gemini_model == "gemini-2.0-flash"
-    assert generator._settings.llm_provider == "gemini"
+    assert generator.settings.gemini_model == "gemini-2.0-flash"
+    assert generator.settings.llm_provider == "gemini"
 
 
 def test_max_chars_per_job_only_for_ollama() -> None:

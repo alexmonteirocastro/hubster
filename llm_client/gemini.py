@@ -52,6 +52,10 @@ class GeminiGenerator(Generator):
             http_options={"timeout": int(settings.timeout_seconds * 1000)},
         )
 
+    @property
+    def settings(self) -> LLMSettings:
+        return self._settings
+
     def generate(self, context: str, question: str) -> str:
         prompt = build_generation_prompt(context, question)
         return self._generate_with_retry(prompt)

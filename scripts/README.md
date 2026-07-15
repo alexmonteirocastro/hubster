@@ -153,6 +153,7 @@ cached `get_generator()` singleton.
 Useful flags: `--top-k N`, `--min-score T`, `--keep-collection` (singular — this script seeds one collection).
 
 **Keep-collection flag naming:** embedding comparison uses `--keep-collections` (plural; N models → N collections). Generation and min-score sweep use `--keep-collection` (singular; one disposable collection each).
+
 ## 4. `CHAT_SOURCE_MIN_SCORE` sweep
 
 Seeds golden jobs into `JOBS_COMPARE_MIN_SCORE_SWEEP`, queries once, then

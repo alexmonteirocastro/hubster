@@ -30,12 +30,7 @@ from llm_client.context import (
     find_ungrounded_link_urls,
     format_job_context,
 )
-from llm_client.exceptions import (
-    GenerationConfigurationError,
-    GenerationError,
-    GenerationRateLimitError,
-    GenerationUnavailableError,
-)
+from llm_client.exceptions import GenerationError
 from llm_client.gemini import GeminiGenerator
 from llm_client.ollama import OllamaGenerator
 from llm_client.settings import LLMSettings, get_llm_settings
@@ -96,10 +91,8 @@ def build_generator(
 
 
 def max_chars_per_job_for_generator(generator: Generator) -> int | None:
-    """Mirror api/main.py: truncate only for Ollama (CPU-bound context)."""
-    if isinstance(generator, OllamaGenerator):
-        return generator._settings.ollama_max_chars_per_job
-    return None
+    """Mirror api/main.py truncation via Generator.max_chars_per_job()."""
+    return generator.max_chars_per_job()
 
 
 def format_context_for_generator(
@@ -174,12 +167,7 @@ def run_generators_for_case(
         context = format_context_for_generator(payloads, generator)
         try:
             answer = generator.generate(context=context, question=query)
-        except (
-            GenerationRateLimitError,
-            GenerationConfigurationError,
-            GenerationUnavailableError,
-            GenerationError,
-        ) as exc:
+        except GenerationError as exc:
             results.append(
                 GenerationCaseResult(
                     case_id=case_id,
