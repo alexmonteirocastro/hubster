@@ -17,6 +17,7 @@ wheels/
 # Local data
 tmp/
 qdrant_data/
+streamlit_app/data/
 
 # Cursor IDE — track shared rules only (see CONTRIBUTING.md)
 .cursor/*
