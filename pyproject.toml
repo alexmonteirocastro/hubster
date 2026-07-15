@@ -26,6 +26,9 @@ dev = [
     "ruff>=0.15.20",  # keep in sync with rev in .pre-commit-config.yaml
     "types-requests>=2.33.0.20260518",
 ]
+eval-ui = [
+    "streamlit>=1.59.2",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -45,6 +48,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 "api/main.py" = ["B008"]
 "scripts/*" = ["E402"]  # standalone entry points bootstrap sys.path before imports
+"streamlit_app/*" = ["E402"]  # same sys.path bootstrap as scripts/*
 
 [tool.mypy]
 python_version = "3.12"
@@ -53,3 +57,8 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 disallow_untyped_defs = true
 exclude = ["tests/", "frontend/"]
+
+# CI install is --group dev only; streamlit lives in eval-ui.
+[[tool.mypy.overrides]]
+module = "streamlit.*"
+ignore_missing_imports = true
