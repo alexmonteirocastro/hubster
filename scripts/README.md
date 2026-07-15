@@ -16,18 +16,16 @@ Both scripts are safe against a production Qdrant Cloud cluster: they create dis
 uv sync   # or uv sync --group dev
 ```
 
-Configure `.env` as usual:
+Configure `.env` as usual — **Qdrant Cloud is required** for embedding-related scripts under the current model ([ADR-0014](../docs/adr/0014-embedding-model-migration.md)):
 
-| Variable | Local Qdrant | Qdrant Cloud |
-|---|---|---|
-| `QDRANT_URL` | `http://localhost:6333` | Your cluster URL |
-| `QDRANT_API_KEY` | Leave empty | Required |
+| Variable | Value |
+|---|---|
+| `QDRANT_URL` | Your Qdrant Cloud cluster URL |
+| `QDRANT_API_KEY` | Required |
 
 Run from the **repo root** (scripts add the repo to `sys.path` automatically).
 
-**Local Qdrant:** start with `docker compose up -d qdrant`.
-
-**Qdrant Cloud:** the comparison script enables `cloud_inference=True` on `QdrantClient` so `models.Document(...)` embedding runs server-side. This is required for `intfloat/multilingual-e5-small` and matches the planned ALE-132 production path.
+The comparison script enables `cloud_inference=True` on `QdrantClient` so `models.Document(...)` embedding runs server-side. This is required for `intfloat/multilingual-e5-small`.
 
 ## 1. Prefix metadata check (no Qdrant calls)
 
@@ -80,15 +78,15 @@ The **summary** section gives, per model:
 
 **What "good" looks like:** positive separation margin. The current `BAAI/bge-small-en-v1.5` calibration (expected hits ≥ ~0.71, noise ~0.55–0.63) is the reference point in `db/settings.py`.
 
-### Local vs Cloud model availability
+### Model availability
 
-| Model | Local FastEmbed | Qdrant Cloud Inference |
-|---|---|---|
-| `BAAI/bge-small-en-v1.5` | Yes | Yes |
-| `sentence-transformers/all-MiniLM-L6-v2` | Yes (alias: `all-MiniLM-L6-v2`) | Yes |
-| `intfloat/multilingual-e5-small` | **No** | Yes |
+| Model | Qdrant Cloud Inference |
+|---|---|
+| `BAAI/bge-small-en-v1.5` | Yes |
+| `sentence-transformers/all-MiniLM-L6-v2` | Yes |
+| `intfloat/multilingual-e5-small` | Yes |
 
-On local Qdrant, compare FastEmbed-supported models only. For the full ALE-138 candidate pair, use Qdrant Cloud.
+Local FastEmbed is not used for Hubster embedding under ADR-0014 — compare models against Qdrant Cloud.
 
 ## Relationship to pytest retrieval tests
 

@@ -45,7 +45,7 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 
 Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection. When `QDRANT_URL` points at Qdrant Cloud and `QDRANT_API_KEY` is set, `get_qdrant_client()` enables `cloud_inference=True` automatically.
 
-> Docker Compose still includes a local `qdrant` service for legacy stack wiring, but **embedding, ingestion, and semantic search require your `.env` to point at Qdrant Cloud** under the current model. Do not rely on `http://localhost:6333` or the Compose-internal `http://qdrant:6333` URL for those paths.
+> **Embedding, ingestion, and semantic search require Qdrant Cloud** under the current model (`intfloat/multilingual-e5-small`). Point `.env` at your Cloud cluster — there is no local FastEmbed / Compose Qdrant path for these workflows ([ADR-0014](adr/0014-embedding-model-migration.md)).
 
 ## Ingestion
 
@@ -346,30 +346,26 @@ uv run pytest -v
 docker compose --profile test run --rm test
 ```
 
-After changing dependencies in `pyproject.toml` / `uv.lock`, rebuild the shared test image (used by both `test` and `test-retrieval`):
+After changing dependencies in `pyproject.toml` / `uv.lock`, rebuild the shared test image:
 
 ```bash
 docker compose --profile test build test
 ```
 
-The test containers bind-mount source packages (`tests/`, `the_hub_client/`, `api/`, `db/`) but use the Linux virtualenv baked into the image — not your host `.venv`. This avoids stale cached volumes when dependencies change.
+The test containers bind-mount source packages (`tests/`, `the_hub_client/`, `api/`, `db/`) but use the Linux virtualenv baked into the image — not your host `.venv`. This avoids stale cached volumes when dependencies change. Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, edits under the mounted source packages apply without rebuilding the image (rebuild only when dependencies change).
 
-Retrieval golden-set and generation eval tests (require Qdrant Cloud — see [tests/README.md](../tests/README.md)):
+Retrieval golden-set and generation eval tests require Qdrant Cloud credentials on the host (see [tests/README.md](../tests/README.md)):
 
 ```bash
 uv run pytest -v -m "retrieval or generation"
 ```
-
-The Docker `test-retrieval` profile still targets a local `qdrant` service and **does not work** with `intfloat/multilingual-e5-small`; use host-side pytest with Cloud credentials instead.
-
-This uses the `test` build target (includes pytest + responses). Unit tests need no Qdrant or network access. With `docker-compose.override.yml` active, edits under the mounted source packages apply without rebuilding the image (rebuild only when dependencies change).
 
 Tests live under `tests/` and use `responses` to mock HTTP at the Hub client boundary (`hub_get`).
 
 ## Roadmap / known limitations
 
 - [x] React frontend for `/chat` demo (see [ADR-0004](adr/0004-frontend-architecture-for-chat-interface.md) and [ADR-0005](adr/0005-visual-design-tokens-for-the-chat-ui.md); tracked in ALE-74)
-- [x] Dockerize the full stack (Qdrant + API + frontend + ingestion)
+- [x] Dockerize the full stack (API + frontend + ingestion; vector store is Qdrant Cloud)
 - [x] FastAPI backend for job stats and semantic search
 - [x] `/chat` RAG endpoint with provider-agnostic generation layer (see [ADR-0001](adr/0001-llm-provider-strategy.md))
 - [x] Incremental sync (skip already-ingested jobs instead of full reset)
