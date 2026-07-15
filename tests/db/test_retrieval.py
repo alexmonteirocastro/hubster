@@ -154,6 +154,74 @@ def test_eu_country_filter_with_remote_excludes_na_remote_jobs(retrieval_qdrant)
     assert "stu345" not in returned_job_ids
 
 
+def _scores_by_job_id(hits) -> dict[str, float]:
+    return {hit.payload["job_url_identifier"]: hit.score for hit in hits}
+
+
+def _assert_role_confusion_case(case: dict, hits, min_score: float) -> None:
+    """Expected role match must outrank confusers and survive the score floor."""
+    returned_job_ids = _job_ids_from_hits(hits)
+    scores = _scores_by_job_id(hits)
+    case_id = case["id"]
+
+    missing = [
+        job_id for job_id in case["expected_job_ids"] if job_id not in returned_job_ids
+    ]
+    assert not missing, (
+        f"Role-confusion case '{case_id}' missed expected job(s) {missing} "
+        f"in top results. Returned: {returned_job_ids}"
+    )
+
+    expected_scores = [
+        scores[job_id] for job_id in case["expected_job_ids"] if job_id in scores
+    ]
+    assert expected_scores, (
+        f"Role-confusion case '{case_id}' has no scores for expected jobs."
+    )
+    best_expected_score = max(expected_scores)
+    assert best_expected_score >= min_score, (
+        f"Role-confusion case '{case_id}' expected job(s) scored below "
+        f"CHAT_SOURCE_MIN_SCORE={min_score}. Scores: {scores}"
+    )
+
+    for confuser_id in case["confuser_job_ids"]:
+        confuser_score = scores.get(confuser_id)
+        if confuser_score is None:
+            continue
+        assert confuser_score < best_expected_score, (
+            f"Role-confusion case '{case_id}': confuser {confuser_id} "
+            f"({confuser_score:.3f}) outranks expected job(s) "
+            f"({best_expected_score:.3f})."
+        )
+        assert confuser_score < min_score, (
+            f"Role-confusion case '{case_id}': confuser {confuser_id} "
+            f"({confuser_score:.3f}) survives CHAT_SOURCE_MIN_SCORE={min_score}."
+        )
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="ALE-151: role confusion (frontend vs Sales/BD in Copenhagen); "
+    "re-run without xfail after ALE-143 (ADR-0010 hybrid search) ships.",
+    strict=True,
+)
+def test_role_confusion_cases(retrieval_qdrant):
+    """Regression guard for role/topic confusion above CHAT_SOURCE_MIN_SCORE."""
+    client, collection_name = retrieval_qdrant
+    golden_set = _load_golden_queries()
+    top_k = golden_set["top_k"]
+
+    for case in golden_set.get("role_confusion_cases", []):
+        min_score = case.get("min_score", DEFAULT_CHAT_SOURCE_MIN_SCORE)
+        results = query_jobs_in_qdrant(
+            db_client=client,
+            collection_name=collection_name,
+            query_text=case["query"],
+            limit=top_k,
+        )
+        _assert_role_confusion_case(case, results.points, min_score)
+
+
 @pytest.mark.retrieval
 def test_na_country_remote_jobs_surface_without_country_filter(retrieval_qdrant):
     client, collection_name = retrieval_qdrant

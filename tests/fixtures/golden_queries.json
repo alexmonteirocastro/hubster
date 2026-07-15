@@ -35,5 +35,15 @@
       "country": "EU",
       "expected_job_ids": ["mno456"]
     }
+  ],
+  "role_confusion_cases": [
+    {
+      "id": "frontend-copenhagen",
+      "query": "frontend jobs in Copenhagen",
+      "expected_job_ids": ["cph001"],
+      "confuser_job_ids": ["cph002", "cph003"],
+      "min_score": 0.85,
+      "notes": "ALE-151: production /chat surfaced Sales/BD roles at 0.855-0.860 above CHAT_SOURCE_MIN_SCORE while declining to claim a frontend match."
+    }
   ]
 }
