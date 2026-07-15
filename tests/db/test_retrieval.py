@@ -158,8 +158,14 @@ def _scores_by_job_id(hits) -> dict[str, float]:
     return {hit.payload["job_url_identifier"]: hit.score for hit in hits}
 
 
-def _assert_role_confusion_case(case: dict, hits, min_score: float) -> None:
-    """Expected role match must outrank confusers and survive the score floor."""
+def _assert_expected_outranks_confusers(
+    case: dict,
+    hits,
+    *,
+    label: str,
+    min_score: float | None = None,
+) -> None:
+    """Expected jobs must appear, optionally clear the floor, and outrank confusers."""
     returned_job_ids = _job_ids_from_hits(hits)
     scores = _scores_by_job_id(hits)
     case_id = case["id"]
@@ -168,35 +174,47 @@ def _assert_role_confusion_case(case: dict, hits, min_score: float) -> None:
         job_id for job_id in case["expected_job_ids"] if job_id not in returned_job_ids
     ]
     assert not missing, (
-        f"Role-confusion case '{case_id}' missed expected job(s) {missing} "
+        f"{label} case '{case_id}' missed expected job(s) {missing} "
         f"in top results. Returned: {returned_job_ids}"
     )
 
     expected_scores = [
         scores[job_id] for job_id in case["expected_job_ids"] if job_id in scores
     ]
-    assert expected_scores, (
-        f"Role-confusion case '{case_id}' has no scores for expected jobs."
-    )
+    assert expected_scores, f"{label} case '{case_id}' has no scores for expected jobs."
     best_expected_score = max(expected_scores)
-    assert best_expected_score >= min_score, (
-        f"Role-confusion case '{case_id}' expected job(s) scored below "
-        f"CHAT_SOURCE_MIN_SCORE={min_score}. Scores: {scores}"
-    )
+    if min_score is not None:
+        assert best_expected_score >= min_score, (
+            f"{label} case '{case_id}' expected job(s) scored below "
+            f"CHAT_SOURCE_MIN_SCORE={min_score}. Scores: {scores}"
+        )
 
     for confuser_id in case["confuser_job_ids"]:
         confuser_score = scores.get(confuser_id)
         if confuser_score is None:
             continue
         assert confuser_score < best_expected_score, (
-            f"Role-confusion case '{case_id}': confuser {confuser_id} "
+            f"{label} case '{case_id}': confuser {confuser_id} "
             f"({confuser_score:.3f}) outranks expected job(s) "
             f"({best_expected_score:.3f})."
         )
-        assert confuser_score < min_score, (
-            f"Role-confusion case '{case_id}': confuser {confuser_id} "
-            f"({confuser_score:.3f}) survives CHAT_SOURCE_MIN_SCORE={min_score}."
-        )
+        if min_score is not None:
+            assert confuser_score < min_score, (
+                f"{label} case '{case_id}': confuser {confuser_id} "
+                f"({confuser_score:.3f}) survives CHAT_SOURCE_MIN_SCORE={min_score}."
+            )
+
+
+def _assert_role_confusion_case(case: dict, hits, min_score: float) -> None:
+    """Expected role match must outrank confusers and survive the score floor."""
+    _assert_expected_outranks_confusers(
+        case, hits, label="Role-confusion", min_score=min_score
+    )
+
+
+def _assert_tech_stack_adversarial_case(case: dict, hits) -> None:
+    """Expected tech-stack match must outrank known-wrong confusers (ADR-0010)."""
+    _assert_expected_outranks_confusers(case, hits, label="Tech-stack adversarial")
 
 
 @pytest.mark.retrieval
@@ -220,6 +238,28 @@ def test_role_confusion_cases(retrieval_qdrant):
             limit=top_k,
         )
         _assert_role_confusion_case(case, results.points, min_score)
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="ALE-145: ADR-0010 tech-stack adversarial pairs (Python/FastAPI, Go, "
+    "Terraform); re-run without xfail after ALE-143 (hybrid search) ships.",
+    strict=True,
+)
+def test_tech_stack_adversarial_cases(retrieval_qdrant):
+    """Regression guard for keyword/tech-stack precision (findings 0001 Cases 1–3)."""
+    client, collection_name = retrieval_qdrant
+    golden_set = _load_golden_queries()
+    top_k = golden_set["top_k"]
+
+    for case in golden_set.get("tech_stack_adversarial_cases", []):
+        results = query_jobs_in_qdrant(
+            db_client=client,
+            collection_name=collection_name,
+            query_text=case["query"],
+            limit=top_k,
+        )
+        _assert_tech_stack_adversarial_case(case, results.points)
 
 
 @pytest.mark.retrieval

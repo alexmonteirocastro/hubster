@@ -90,6 +90,20 @@ These are included deliberately: not every tight margin is a bug, and claiming o
 
 Running this investigation required manually inspecting `document_text` for 10+ jobs by hand, one at a time, via ad hoc Qdrant scroll queries. There is currently no automated way to check "is the correct/most-relevant job actually ranking highly for a given tech-stack query" beyond the 5-query golden set, which has no adversarial confusable pairs built in. This isn't a new discovery — "setting up human evaluation systems" is already a stated Phase 1 near-term priority — but this spike is concrete evidence for *why* it matters: several of the failures found here (Learnster/Framna, Six Robotics/Framna) are exactly the kind of near-miss a small, deliberately-constructed adversarial golden set would catch automatically and repeatably, instead of waiting for a real user transcript to surface it.
 
+## Fixture regression cases (ALE-145)
+
+Codified in `tests/fixtures/golden_queries.json` under `tech_stack_adversarial_cases` (ADR-0010 Decision 5). Fixture jobs are anonymized analogues of the production pairs above; country is Sweden so they do not collide with DK/EU-filtered golden queries.
+
+| Case | Query | Expected (`job_id`) | Confuser (`job_id`) |
+|---|---|---|---|
+| 1 | `Python backend developer FastAPI` | `ts001` — Backend & Platform Engineer @ Courseware Labs (Python/Django + Terraform) | `ts002` — Backend Developer @ Mobile Studio (PHP/Node; Python listed once) |
+| 2 | `Go backend engineer` | `ts003` — Backend engineer @ Fleet Finance (Go-primary) | `ts001` — Courseware Labs (no Go) |
+| 3 | `Terraform infrastructure as code engineer` | `ts001` — Courseware Labs (Terraform named as helpful tooling) | `ts004` — Infrastructure as Code Engineer @ Wildlife Analytics (IaC language, no Terraform) |
+
+Test: `test_tech_stack_adversarial_cases` in `tests/db/test_retrieval.py` (marked `xfail` until ALE-143 ships). Schema reuses `confuser_job_ids` for the known-wrong winner (same field as ALE-151 role-confusion cases); assertions are rank-order only.
+
+Observed fixture ranks under E5 dense-only (2026-07-15): each confuser outranks its expected match — encoding the dense-only failure ADR-0010 hybrid search should reverse.
+
 ## Recommendation
 
 **Go.** Proceed to a new ADR (e.g. ADR-0010) evaluating sparse/BM25 hybrid search as a complement to the existing dense-vector retrieval, per ADR-0002's revisit trigger — now recorded in `docs/adr/0010-sparse-bm25-hybrid-search.md`. The ADR should:

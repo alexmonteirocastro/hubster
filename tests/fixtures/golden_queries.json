@@ -1,5 +1,5 @@
 {
-  "top_k": 5,
+  "top_k": 8,
   "fixture_chat_source_min_score": 0.826,
   "queries": [
     {
@@ -44,6 +44,29 @@
       "confuser_job_ids": ["cph002", "cph003"],
       "min_score": 0.85,
       "notes": "ALE-151: production /chat surfaced Sales/BD roles at 0.855-0.860 above CHAT_SOURCE_MIN_SCORE while declining to claim a frontend match."
+    }
+  ],
+  "tech_stack_adversarial_cases": [
+    {
+      "id": "python-fastapi",
+      "query": "Python backend developer FastAPI",
+      "expected_job_ids": ["ts001"],
+      "confuser_job_ids": ["ts002"],
+      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 1: Python-core role (Courseware Labs) must outrank PHP/Node role that only lists Python once (Mobile Studio)."
+    },
+    {
+      "id": "go-backend",
+      "query": "Go backend engineer",
+      "expected_job_ids": ["ts003"],
+      "confuser_job_ids": ["ts001"],
+      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 2: Go-primary role (Fleet Finance) must outrank Python/Django role with no Go (Courseware Labs)."
+    },
+    {
+      "id": "terraform-iac",
+      "query": "Terraform infrastructure as code engineer",
+      "expected_job_ids": ["ts001"],
+      "confuser_job_ids": ["ts004"],
+      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 3: Terraform-named role (Courseware Labs) must outrank Infrastructure-as-Code title with no Terraform mention (Wildlife Analytics)."
     }
   ]
 }
