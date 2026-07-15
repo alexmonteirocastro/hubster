@@ -69,6 +69,7 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
 4. Optional `tech_stack_adversarial_cases` — keyword/tech-stack precision pairs (ALE-145 / ADR-0010 Decision 5):
    - Same `query` / `expected_job_ids` / `confuser_job_ids` fields as role-confusion cases (reuse `confuser_job_ids` for the "known wrong winner"; no separate schema field)
    - Assertions are **rank-order only** (expected must outrank each confuser in top-k) — no `min_score` floor check; tech-stack failures are ranking precision, not noise above the `/chat` floor
+   - Keep keyword density on the **expected** winner (framework-qualified / explicit requirement) and light or absent on the **confuser** — matching findings 0001 — so hybrid BM25 can favor the expected job. Do not stuff query terms into the confuser to force a dense-only miss.
    - Covered by `test_tech_stack_adversarial_cases` (currently `xfail` until ALE-143 ships)
 5. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all non-xfail cases pass.
 

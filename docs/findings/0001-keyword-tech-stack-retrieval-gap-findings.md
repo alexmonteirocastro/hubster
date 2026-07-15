@@ -94,15 +94,19 @@ Running this investigation required manually inspecting `document_text` for 10+ 
 
 Codified in `tests/fixtures/golden_queries.json` under `tech_stack_adversarial_cases` (ADR-0010 Decision 5). Fixture jobs are anonymized analogues of the production pairs above; country is Sweden so they do not collide with DK/EU-filtered golden queries.
 
+Keyword layout matches the production mechanism ADR-0010 targets: the **expected** winner has higher tech-stack keyword weight and an explicit requirement (Python/Django twice; Terraform as proficiency requirement), while the **confuser** only lightly mentions the term (Python once in a PHP/Node stack list) or not at all (no Terraform). Do not invert that density — BM25/hybrid must be able to favor the expected job.
+
+`ts001` is reused across cases 1 (expected), 2 (confuser), and 3 (expected). Any edit to its text must be re-checked against all three.
+
 | Case | Query | Expected (`job_id`) | Confuser (`job_id`) |
 |---|---|---|---|
-| 1 | `Python backend developer FastAPI` | `ts001` — Backend & Platform Engineer @ Courseware Labs (Python/Django + Terraform) | `ts002` — Backend Developer @ Mobile Studio (PHP/Node; Python listed once) |
-| 2 | `Go backend engineer` | `ts003` — Backend engineer @ Fleet Finance (Go-primary) | `ts001` — Courseware Labs (no Go) |
-| 3 | `Terraform infrastructure as code engineer` | `ts001` — Courseware Labs (Terraform named as helpful tooling) | `ts004` — Infrastructure as Code Engineer @ Wildlife Analytics (IaC language, no Terraform) |
+| 1 | `Python backend developer FastAPI` | `ts001` — Backend & Platform Engineer @ Courseware Labs (Python/Django core + Terraform requirement) | `ts002` — Backend Developer @ Mobile Studio (PHP/Node primary; Python listed once) |
+| 2 | `Go backend engineer` | `ts003` — Software Engineer @ Fleet Finance (Go-primary) | `ts001` — Courseware Labs (no Go) |
+| 3 | `Terraform infrastructure as code engineer` | `ts001` — Courseware Labs (Terraform as explicit proficiency requirement) | `ts004` — Senior Software Engineer @ Wildlife Analytics (no Terraform / IaC) |
 
 Test: `test_tech_stack_adversarial_cases` in `tests/db/test_retrieval.py` (marked `xfail` until ALE-143 ships). Schema reuses `confuser_job_ids` for the known-wrong winner (same field as ALE-151 role-confusion cases); assertions are rank-order only.
 
-Observed fixture ranks under E5 dense-only (2026-07-15): each confuser outranks its expected match — encoding the dense-only failure ADR-0010 hybrid search should reverse.
+Observed fixture ranks under E5 dense-only (2026-07-15, post keyword-layout fix): cases 1–2 have the confuser outranking the expected match (dense-only failure hybrid should reverse). Case 3 already ranks `ts001` first on these short fixtures (production reverse on long Hub postings is harder to reproduce without stuffing confuser IaC language, which would invert BM25); it remains a regression guard that hybrid must keep expected ahead.
 
 ## Recommendation
 

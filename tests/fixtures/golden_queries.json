@@ -66,7 +66,7 @@
       "query": "Terraform infrastructure as code engineer",
       "expected_job_ids": ["ts001"],
       "confuser_job_ids": ["ts004"],
-      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 3: Terraform-named role (Courseware Labs) must outrank Infrastructure-as-Code title with no Terraform mention (Wildlife Analytics)."
+      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 3: Terraform-as-requirement role (Courseware Labs) must outrank Senior Software Engineer with no Terraform/IaC (Wildlife Analytics). Keyword density favors expected so BM25/hybrid can reinforce it."
     }
   ]
 }
