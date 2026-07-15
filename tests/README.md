@@ -58,7 +58,7 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
 2. Edit `tests/fixtures/golden_queries.json`:
    - `query` — natural-language search text
    - `expected_job_ids` — Hub job IDs that must appear in top-k
-   - `top_k` — how many results to inspect (default `5`)
+   - `top_k` — how many results to inspect (default `8`)
    - `fixture_chat_source_min_score` — score floor for the dev corpus (production default is `0.85` in `db/settings.py`)
 3. Optional `role_confusion_cases` — adversarial role/topic pairs (ALE-151):
    - `query` — natural-language search text
@@ -66,9 +66,24 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
    - `confuser_job_ids` — semantically similar but wrong-role jobs that must not outrank the expected match or pass `min_score` (checked only if returned in top-k; absence from top-k is fine). If an expected job itself is missing from top-k, the separate `missing` assertion fails first — confuser ranking/floor checks are not reached that run.
    - `min_score` — production floor to assert against (default `0.85`)
    - Covered by `test_role_confusion_cases` (currently `xfail` until ALE-143 is verified)
-4. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all non-xfail cases pass.
+4. Optional `tech_stack_adversarial_cases` — keyword/tech-stack precision pairs (ALE-145 / ADR-0010 Decision 5):
+   - Same `query` / `expected_job_ids` / `confuser_job_ids` fields as role-confusion cases (reuse `confuser_job_ids` for the "known wrong winner"; no separate schema field)
+   - Assertions are **rank-order only** (expected must outrank each confuser in top-k) — no `min_score` floor check; tech-stack failures are ranking precision, not noise above the `/chat` floor
+   - Keep keyword density on the **expected** winner (framework-qualified / explicit requirement) and light or absent on the **confuser** — matching findings 0001 — so hybrid BM25 can favor the expected job. Do not stuff query terms into the confuser to force a dense-only miss.
+   - Covered by `test_tech_stack_adversarial_cases` (currently `xfail` until ALE-143 ships)
+5. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all non-xfail cases pass.
 
 If you reseed from live data with `--seed-dev`, pick real `job_id` values from that collection when updating `expected_job_ids`.
+
+### Promoting a production observation into a golden-set case
+
+Lightweight loop (mirrors ALE-92 → findings → ADR-0010, and ALE-151):
+
+1. **Capture** — note the query, observed ranking (job titles / IDs / scores), and why it is wrong. Prefer a short `docs/findings/NNNN-….md` entry over chat-only notes.
+2. **Classify** — role/topic confusion → `role_confusion_cases`; keyword/tech-stack precision (expected vs known-wrong competitor) → `tech_stack_adversarial_cases`; otherwise extend `queries` if it is a simple hit/miss regression.
+3. **Fixture** — add anonymized jobs to `golden_jobs.json` that reproduce the failure mode under the current embedder (keep `job_id`s stable). Point `expected_job_ids` / `confuser_job_ids` at those fixtures.
+4. **Guard** — add or extend the matching `@pytest.mark.retrieval` test. If the fix is not landed yet, mark `xfail(strict=True)` with a ticket reference (same pattern as ALE-151 / ALE-145 awaiting ALE-143).
+5. **Verify** — after the fix ships, re-run without `xfail` and record pass/fail in the findings doc.
 
 ## Generation eval tests
 

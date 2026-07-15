@@ -90,6 +90,24 @@ These are included deliberately: not every tight margin is a bug, and claiming o
 
 Running this investigation required manually inspecting `document_text` for 10+ jobs by hand, one at a time, via ad hoc Qdrant scroll queries. There is currently no automated way to check "is the correct/most-relevant job actually ranking highly for a given tech-stack query" beyond the 5-query golden set, which has no adversarial confusable pairs built in. This isn't a new discovery — "setting up human evaluation systems" is already a stated Phase 1 near-term priority — but this spike is concrete evidence for *why* it matters: several of the failures found here (Learnster/Framna, Six Robotics/Framna) are exactly the kind of near-miss a small, deliberately-constructed adversarial golden set would catch automatically and repeatably, instead of waiting for a real user transcript to surface it.
 
+## Fixture regression cases (ALE-145)
+
+Codified in `tests/fixtures/golden_queries.json` under `tech_stack_adversarial_cases` (ADR-0010 Decision 5). Fixture jobs are anonymized analogues of the production pairs above; country is Sweden so they do not collide with DK/EU-filtered golden queries.
+
+Keyword layout matches the production mechanism ADR-0010 targets: the **expected** winner has higher tech-stack keyword weight and an explicit requirement (Python/Django twice; Terraform as proficiency requirement), while the **confuser** only lightly mentions the term (Python once in a PHP/Node stack list) or not at all (no Terraform). Do not invert that density — BM25/hybrid must be able to favor the expected job.
+
+`ts001` is reused across cases 1 (expected), 2 (confuser), and 3 (expected). Any edit to its text must be re-checked against all three.
+
+| Case | Query | Expected (`job_id`) | Confuser (`job_id`) |
+|---|---|---|---|
+| 1 | `Python backend developer FastAPI` | `ts001` — Backend & Platform Engineer @ Courseware Labs (Python/Django core + Terraform requirement) | `ts002` — Backend Developer @ Mobile Studio (PHP/Node primary; Python listed once) |
+| 2 | `Go backend engineer` | `ts003` — Software Engineer @ Fleet Finance (Go-primary) | `ts001` — Courseware Labs (no Go) |
+| 3 | `Terraform infrastructure as code engineer` | `ts001` — Courseware Labs (Terraform as explicit proficiency requirement) | `ts004` — Senior Software Engineer @ Wildlife Analytics (no Terraform / IaC) |
+
+Test: `test_tech_stack_adversarial_cases` in `tests/db/test_retrieval.py` (marked `xfail` until ALE-143 ships). Schema reuses `confuser_job_ids` for the known-wrong winner (same field as ALE-151 role-confusion cases); assertions are rank-order only.
+
+Observed fixture ranks under E5 dense-only (2026-07-15, post keyword-layout fix): cases 1–2 have the confuser outranking the expected match (dense-only failure hybrid should reverse). Case 3 already ranks `ts001` first on these short fixtures (production reverse on long Hub postings is harder to reproduce without stuffing confuser IaC language, which would invert BM25); it remains a regression guard that hybrid must keep expected ahead.
+
 ## Recommendation
 
 **Go.** Proceed to a new ADR (e.g. ADR-0010) evaluating sparse/BM25 hybrid search as a complement to the existing dense-vector retrieval, per ADR-0002's revisit trigger — now recorded in `docs/adr/0010-sparse-bm25-hybrid-search.md`. The ADR should:
