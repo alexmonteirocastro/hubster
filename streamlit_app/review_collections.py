@@ -1,4 +1,8 @@
-"""Qdrant collection helpers for the eval review UI (no Streamlit import)."""
+"""Qdrant collection helpers for the eval review UI (no Streamlit import).
+
+Named review_collections (not collections) to avoid clashing with
+evals.collections when grepping the repo.
+"""
 
 from __future__ import annotations
 

@@ -16,10 +16,6 @@ from llm_client.exceptions import (
     GenerationRateLimitError,
     GenerationUnavailableError,
 )
-from streamlit_app.collections import (
-    REVIEW_COLLECTION_CANDIDATES,
-    existing_review_collections,
-)
 from streamlit_app.judgments import (
     Judgment,
     Tag,
@@ -27,6 +23,10 @@ from streamlit_app.judgments import (
     get_judgment,
     insert_judgment,
     list_judgments,
+)
+from streamlit_app.review_collections import (
+    REVIEW_COLLECTION_CANDIDATES,
+    existing_review_collections,
 )
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import build_job_url
