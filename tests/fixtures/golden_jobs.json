@@ -96,5 +96,47 @@
     "salary_type": "competitive",
     "salary": "N/A",
     "equity": "undisclosed"
+  },
+  {
+    "job_id": "cph001",
+    "job_title": "Frontend Developer",
+    "company": "Copenhagen Digital",
+    "job_role": "frontenddeveloper",
+    "company_description": "Product studio in Copenhagen building SaaS for European markets.",
+    "job_description": "Build and ship React and TypeScript frontends. Collaborate with design and backend teams on customer-facing features.",
+    "country": "Denmark",
+    "locality": "Copenhagen",
+    "remote": false,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
+  },
+  {
+    "job_id": "cph002",
+    "job_title": "Sales Development Representative",
+    "company": "Nordic Growth Co",
+    "job_role": "sales",
+    "company_description": "B2B SaaS company with a Copenhagen hub.",
+    "job_description": "Drive outbound sales from our Copenhagen office. Identify and qualify leads across Denmark and the Nordics.",
+    "country": "Denmark",
+    "locality": "Copenhagen",
+    "remote": false,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
+  },
+  {
+    "job_id": "cph003",
+    "job_title": "Business Development Consultant",
+    "company": "Hub Partners",
+    "job_role": "businessdevelopment",
+    "company_description": "Advisory firm working with Nordic startups.",
+    "job_description": "Advise startups in Copenhagen on partnerships and market expansion across Scandinavia.",
+    "country": "Denmark",
+    "locality": "Copenhagen",
+    "remote": false,
+    "salary_type": "competitive",
+    "salary": "N/A",
+    "equity": "undisclosed"
   }
 ]

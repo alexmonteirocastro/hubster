@@ -59,8 +59,14 @@ This drops and reloads `QDRANT_DEV_COLLECTION_NAME` with the first two pages of 
    - `query` — natural-language search text
    - `expected_job_ids` — Hub job IDs that must appear in top-k
    - `top_k` — how many results to inspect (default `5`)
-   - `fixture_chat_source_min_score` — score floor for the 7-job dev corpus (production default is `0.85` in `db/settings.py`)
-3. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all cases pass.
+   - `fixture_chat_source_min_score` — score floor for the dev corpus (production default is `0.85` in `db/settings.py`)
+3. Optional `role_confusion_cases` — adversarial role/topic pairs (ALE-151):
+   - `query` — natural-language search text
+   - `expected_job_ids` — the correct role match that must rank highest and survive the floor
+   - `confuser_job_ids` — semantically similar but wrong-role jobs that must not outrank the expected match or pass `min_score` (checked only if returned in top-k; absence from top-k is fine). If an expected job itself is missing from top-k, the separate `missing` assertion fails first — confuser ranking/floor checks are not reached that run.
+   - `min_score` — production floor to assert against (default `0.85`)
+   - Covered by `test_role_confusion_cases` (currently `xfail` until ALE-143 is verified)
+4. Run `uv run pytest -v -m retrieval` and adjust queries or expectations until all non-xfail cases pass.
 
 If you reseed from live data with `--seed-dev`, pick real `job_id` values from that collection when updating `expected_job_ids`.
 
