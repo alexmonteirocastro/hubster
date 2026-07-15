@@ -27,7 +27,20 @@ from streamlit_app.judgments import (
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import build_job_url
 
-REVIEW_COLLECTIONS = ("JOBS_DEV", "JOBS_ON_THE_HUB")
+REVIEW_COLLECTION_CANDIDATES = ("JOBS_DEV", "JOBS_ON_THE_HUB")
+
+
+def _existing_review_collections() -> list[str]:
+    """Return candidate collections that currently exist on the configured Qdrant."""
+    client = get_qdrant_client()
+    available: list[str] = []
+    for name in REVIEW_COLLECTION_CANDIDATES:
+        try:
+            if client.collection_exists(name):
+                available.append(name)
+        except (UnexpectedResponse, ConnectionError, TimeoutError, OSError):
+            break
+    return available
 
 
 def _payload_source(score: float, payload: dict[str, Any]) -> dict[str, Any]:
@@ -166,12 +179,26 @@ def render_review_tab() -> None:
     ensure_db()
 
     st.subheader("Run a review query")
+    try:
+        collections = _existing_review_collections()
+    except (UnexpectedResponse, ConnectionError, TimeoutError, OSError) as exc:
+        st.error(f"Cannot list Qdrant collections: {exc}")
+        return
+    if not collections:
+        st.warning(
+            "None of "
+            + ", ".join(REVIEW_COLLECTION_CANDIDATES)
+            + " exist on this Qdrant cluster. "
+            "Seed with `uv run python main.py --seed-dev` or sync production."
+        )
+        return
+
     query = st.text_area("Query", height=80, key="review_query")
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         collection_name = st.selectbox(
             "Collection",
-            options=list(REVIEW_COLLECTIONS),
+            options=collections,
             key="review_collection",
         )
     with col_b:
