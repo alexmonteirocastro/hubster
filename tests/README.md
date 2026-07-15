@@ -40,8 +40,6 @@ If Qdrant Cloud is not reachable or `.env` is misconfigured, retrieval tests are
 
 The test session seeds `tests/fixtures/golden_jobs.json` into the dev collection, runs each query in `tests/fixtures/golden_queries.json`, and asserts every expected `job_id` appears in the configured top-k.
 
-> **Note:** `docker compose --profile test run --rm test-retrieval` still targets a local `qdrant` service and does **not** work with the current embedding model. Use host-side pytest with Cloud credentials instead.
-
 ### Seed the dev collection from live Hub data
 
 For manual exploration or regenerating the golden set against real listings:

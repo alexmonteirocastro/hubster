@@ -30,14 +30,6 @@ services:
       - ./db:/app/db
       - ./llm_client:/app/llm_client
 
-  test-retrieval:
-    volumes:
-      - ./tests:/app/tests
-      - ./the_hub_client:/app/the_hub_client
-      - ./api:/app/api
-      - ./db:/app/db
-      - ./llm_client:/app/llm_client
-
   frontend:
     build:
       args:

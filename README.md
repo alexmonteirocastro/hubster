@@ -19,7 +19,7 @@ cd hubster
 cp .env.example .env
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#environment-variables) for the full variable reference. **Embedding requires Qdrant Cloud** — set `QDRANT_URL`, `QDRANT_API_KEY`, and `EMBEDDING_MODEL=intfloat/multilingual-e5-small` in `.env` (see [ADR-0014](docs/adr/0014-embedding-model-migration.md)); the bundled Compose `qdrant` service is not used for embedding under the current model.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#environment-variables) for the full variable reference. **Embedding requires Qdrant Cloud** — set `QDRANT_URL`, `QDRANT_API_KEY`, and `EMBEDDING_MODEL=intfloat/multilingual-e5-small` in `.env` (see [ADR-0014](docs/adr/0014-embedding-model-migration.md)).
 
 ### 2. Start the stack
 
@@ -29,7 +29,6 @@ docker compose up --build
 
 This starts:
 
-- **qdrant** — local vector DB on `localhost:6333` (legacy Compose service; **embedding uses Qdrant Cloud** from `.env`, not this container)
 - **api** — FastAPI backend on [localhost:8000](http://localhost:8000) ([Swagger UI](http://localhost:8000/docs))
 - **frontend** — React chat UI on [localhost:5173](http://localhost:5173)
 
