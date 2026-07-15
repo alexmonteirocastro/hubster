@@ -10,6 +10,7 @@ Usage:
 
     uv run python scripts/compare_generators.py --providers stub
     uv run python scripts/compare_generators.py --providers gemini ollama:qwen3:8b
+    uv run python scripts/compare_generators.py --providers ollama:qwen3:8b --top-k 3
 """
 
 from __future__ import annotations
@@ -48,6 +49,8 @@ def _print_results(result: GenerationComparisonResult) -> None:
                 f"  ⚠️  missing expected sources: "
                 f"{case_result.missing_expected_source_ids}"
             )
+        if case_result.error:
+            print(f"  ⚠️  error: {case_result.error}")
         if case_result.ungrounded_urls:
             print(f"  ⚠️  ungrounded urls: {case_result.ungrounded_urls}")
         if case_result.ungrounded_phrases:
@@ -66,17 +69,37 @@ def main() -> int:
         help=("Generator labels: gemini, gemini:<model>, ollama, ollama:<model>, stub"),
     )
     parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Retrieval limit before min-score filter (default: 5). Lower for Ollama.",
+    )
+    parser.add_argument(
+        "--min-score",
+        type=float,
+        default=None,
+        metavar="T",
+        help="Override CHAT_SOURCE_MIN_SCORE (default: value from settings).",
+    )
+    parser.add_argument(
         "--keep-collection",
         action="store_true",
         help="Keep JOBS_COMPARE_GENERATION after running (default: delete).",
     )
     args = parser.parse_args()
 
+    if args.top_k < 1:
+        print("Error: --top-k must be >= 1", file=sys.stderr)
+        return 1
+
     try:
         generators = {label: build_generator(label) for label in args.providers}
         result = compare_generators(
             generators,
             keep_collection=args.keep_collection,
+            top_k=args.top_k,
+            min_score=args.min_score,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -2,18 +2,72 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any
+
 import pytest
 
 from evals.collections import collection_name_for_model
 from evals.embeddings import summarize_query_results
-from evals.generation import build_generator
+from evals.generation import (
+    build_generator,
+    format_context_for_generator,
+    max_chars_per_job_for_generator,
+    run_generators_for_case,
+)
 from evals.hyperparameters import (
     evaluate_threshold,
     suggest_max_safe_threshold,
     sweep_from_case_scores,
 )
-from evals.types import QueryResult, ScoredHit, SweepCaseScores
+from evals.types import GenerationCaseResult, QueryResult, ScoredHit, SweepCaseScores
+from llm_client.base import Generator
+from llm_client.exceptions import GenerationUnavailableError
+from llm_client.gemini import GeminiGenerator
+from llm_client.ollama import OllamaGenerator
+from llm_client.settings import LLMSettings
 from llm_client.stub import StubGenerator
+
+
+def _llm_settings(**overrides: Any) -> LLMSettings:
+    defaults: dict[str, Any] = {
+        "llm_provider": "ollama",
+        "gemini_api_key": "test-key",
+        "gemini_model": "gemini-2.5-flash",
+        "max_retries": 3,
+        "backoff_factor": 1.0,
+        "timeout_seconds": 30.0,
+        "ollama_base_url": "http://localhost:11434/v1",
+        "ollama_model": "qwen3:4b",
+        "ollama_timeout_seconds": 60.0,
+        "ollama_max_chars_per_job": 1200,
+        "ollama_num_predict": 256,
+    }
+    defaults.update(overrides)
+    return LLMSettings.model_construct(**defaults)
+
+
+@dataclass
+class _FakePoint:
+    score: float
+    payload: dict[str, Any] | None
+
+
+class _RecordingGenerator(Generator):
+    """Captures the context string passed to generate()."""
+
+    def __init__(self, answer: str = "ok") -> None:
+        self.answer = answer
+        self.contexts: list[str] = []
+
+    def generate(self, context: str, question: str) -> str:
+        self.contexts.append(context)
+        return self.answer
+
+
+class _FailingGenerator(Generator):
+    def generate(self, context: str, question: str) -> str:
+        raise GenerationUnavailableError("ollama timed out")
 
 
 def test_collection_name_for_model_slugifies_slashes_and_dots() -> None:
@@ -127,13 +181,135 @@ def test_build_generator_stub_without_llm_settings() -> None:
     assert isinstance(answer, str)
 
 
+def test_build_generator_ollama_model_label() -> None:
+    base = _llm_settings(ollama_model="qwen3:4b")
+    generator = build_generator("ollama:qwen3:8b", base_settings=base)
+    assert isinstance(generator, OllamaGenerator)
+    assert generator._settings.ollama_model == "qwen3:8b"
+    assert generator._settings.llm_provider == "ollama"
+
+
+def test_build_generator_gemini_model_label() -> None:
+    base = _llm_settings(llm_provider="gemini", gemini_model="gemini-2.5-flash")
+    generator = build_generator("gemini:gemini-2.0-flash", base_settings=base)
+    assert isinstance(generator, GeminiGenerator)
+    assert generator._settings.gemini_model == "gemini-2.0-flash"
+    assert generator._settings.llm_provider == "gemini"
+
+
+def test_max_chars_per_job_only_for_ollama() -> None:
+    ollama = OllamaGenerator(_llm_settings(ollama_max_chars_per_job=500))
+    gemini = GeminiGenerator(_llm_settings(llm_provider="gemini"))
+    assert max_chars_per_job_for_generator(ollama) == 500
+    assert max_chars_per_job_for_generator(gemini) is None
+    assert max_chars_per_job_for_generator(StubGenerator()) is None
+
+
+def test_format_context_truncates_for_ollama_only() -> None:
+    long_body = "x" * 2000
+    payloads = [
+        {
+            "job_url_identifier": "abc123",
+            "document_text": long_body,
+        }
+    ]
+    ollama = OllamaGenerator(_llm_settings(ollama_max_chars_per_job=50))
+    gemini = GeminiGenerator(_llm_settings(llm_provider="gemini"))
+
+    ollama_ctx = format_context_for_generator(payloads, ollama)
+    gemini_ctx = format_context_for_generator(payloads, gemini)
+
+    assert len(ollama_ctx) < len(gemini_ctx)
+    assert long_body not in ollama_ctx
+    assert long_body in gemini_ctx
+
+
+def test_run_generators_for_case_builds_per_provider_context() -> None:
+    long_body = "y" * 3000
+    points = [
+        _FakePoint(
+            score=0.9,
+            payload={
+                "job_url_identifier": "abc123",
+                "document_text": long_body,
+            },
+        )
+    ]
+    stub = _RecordingGenerator("stub-answer")
+    ollama = OllamaGenerator(_llm_settings(ollama_max_chars_per_job=80))
+    ollama_contexts: list[str] = []
+
+    def _capture(context: str, question: str) -> str:
+        ollama_contexts.append(context)
+        return "ollama-answer"
+
+    ollama.generate = _capture  # type: ignore[method-assign]
+
+    results = run_generators_for_case(
+        case_id="backend_copenhagen",
+        query="backend engineer",
+        expected_source_job_ids=["abc123"],
+        usable_points=points,
+        generators={"stub": stub, "ollama": ollama},
+    )
+
+    assert len(results) == 2
+    by_label = {r.generator_label: r for r in results}
+    assert by_label["stub"].generated is True
+    assert by_label["ollama"].generated is True
+    assert long_body in stub.contexts[0]
+    assert long_body not in ollama_contexts[0]
+    assert len(ollama_contexts[0]) < len(stub.contexts[0])
+
+
+def test_run_generators_for_case_records_error_and_continues() -> None:
+    points = [
+        _FakePoint(
+            score=0.9,
+            payload={
+                "job_url_identifier": "abc123",
+                "document_text": "Backend engineer role in Copenhagen.",
+            },
+        )
+    ]
+    results = run_generators_for_case(
+        case_id="backend_copenhagen",
+        query="backend",
+        expected_source_job_ids=["abc123"],
+        usable_points=points,
+        generators={
+            "failing": _FailingGenerator(),
+            "ok": _RecordingGenerator("all good"),
+        },
+    )
+    by_label = {r.generator_label: r for r in results}
+    assert by_label["failing"].generated is False
+    assert by_label["failing"].error is not None
+    assert "GenerationUnavailableError" in by_label["failing"].error
+    assert by_label["ok"].generated is True
+    assert by_label["ok"].answer == "all good"
+    assert by_label["ok"].error is None
+
+
+def test_run_generators_for_case_empty_retrieval() -> None:
+    results = run_generators_for_case(
+        case_id="x",
+        query="q",
+        expected_source_job_ids=["abc"],
+        usable_points=[],
+        generators={"stub": StubGenerator()},
+    )
+    assert len(results) == 1
+    assert results[0].generated is False
+    assert results[0].missing_expected_source_ids == ["abc"]
+
+
 def test_generation_case_result_fields_omit_mock_substring() -> None:
     # GenerationCaseResult has no mock_answer_substring attribute — guard against
     # wiring ScriptedGenerator-only fixture fields into live-model metrics.
-    from evals.types import GenerationCaseResult
-
     fields = set(GenerationCaseResult.__dataclass_fields__)
     assert "mock_answer_substring" not in fields
     assert "answer" in fields
+    assert "error" in fields
     assert "ungrounded_urls" in fields
     assert "ungrounded_phrases" in fields

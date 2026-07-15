@@ -8,8 +8,8 @@ a real Gemini/Ollama call will output. Do not wire it into live-model scoring.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, cast
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol, cast
 
 from qdrant_client import QdrantClient
 
@@ -30,11 +30,22 @@ from llm_client.context import (
     find_ungrounded_link_urls,
     format_job_context,
 )
+from llm_client.exceptions import (
+    GenerationConfigurationError,
+    GenerationError,
+    GenerationRateLimitError,
+    GenerationUnavailableError,
+)
 from llm_client.gemini import GeminiGenerator
 from llm_client.ollama import OllamaGenerator
 from llm_client.settings import LLMSettings, get_llm_settings
 from llm_client.stub import StubGenerator
 from the_hub_client.utils import build_job_url
+
+
+class _RetrievalPointLike(Protocol):
+    score: float
+    payload: dict[str, Any] | None
 
 
 def build_generator(
@@ -84,8 +95,26 @@ def build_generator(
     )
 
 
+def max_chars_per_job_for_generator(generator: Generator) -> int | None:
+    """Mirror api/main.py: truncate only for Ollama (CPU-bound context)."""
+    if isinstance(generator, OllamaGenerator):
+        return generator._settings.ollama_max_chars_per_job
+    return None
+
+
+def format_context_for_generator(
+    payloads: list[dict[str, Any]],
+    generator: Generator,
+) -> str:
+    """Build generation context with per-provider truncation matching /chat."""
+    return format_job_context(
+        payloads,
+        max_chars_per_job=max_chars_per_job_for_generator(generator),
+    )
+
+
 def _source_ids_and_urls(
-    usable_points: list[Any],
+    usable_points: Sequence[_RetrievalPointLike],
 ) -> tuple[list[str], set[str], list[str]]:
     source_ids: list[str] = []
     allowed_urls: set[str] = set()
@@ -100,6 +129,93 @@ def _source_ids_and_urls(
         if isinstance(document_text, str) and document_text.strip():
             document_texts.append(document_text.strip())
     return source_ids, allowed_urls, document_texts
+
+
+def run_generators_for_case(
+    *,
+    case_id: str,
+    query: str,
+    expected_source_job_ids: list[str],
+    usable_points: Sequence[_RetrievalPointLike],
+    generators: Mapping[str, Generator],
+) -> list[GenerationCaseResult]:
+    """Run each generator on one case; catch per-call generation failures.
+
+    Builds context **per generator** so Ollama gets ``OLLAMA_MAX_CHARS_PER_JOB``
+    truncation like production ``POST /chat``.
+    """
+    source_ids, allowed_urls, document_texts = _source_ids_and_urls(usable_points)
+    missing_expected = [
+        job_id for job_id in expected_source_job_ids if job_id not in source_ids
+    ]
+
+    if not usable_points:
+        return [
+            GenerationCaseResult(
+                case_id=case_id,
+                query=query,
+                generator_label=label,
+                answer="",
+                source_job_ids=[],
+                expected_source_job_ids=expected_source_job_ids,
+                missing_expected_source_ids=missing_expected,
+                ungrounded_urls=[],
+                ungrounded_phrases=[],
+                generated=False,
+                error=None,
+            )
+            for label in generators
+        ]
+
+    payloads = [cast(dict[str, Any], point.payload) for point in usable_points]
+    results: list[GenerationCaseResult] = []
+
+    for label, generator in generators.items():
+        context = format_context_for_generator(payloads, generator)
+        try:
+            answer = generator.generate(context=context, question=query)
+        except (
+            GenerationRateLimitError,
+            GenerationConfigurationError,
+            GenerationUnavailableError,
+            GenerationError,
+        ) as exc:
+            results.append(
+                GenerationCaseResult(
+                    case_id=case_id,
+                    query=query,
+                    generator_label=label,
+                    answer="",
+                    source_job_ids=list(source_ids),
+                    expected_source_job_ids=expected_source_job_ids,
+                    missing_expected_source_ids=list(missing_expected),
+                    ungrounded_urls=[],
+                    ungrounded_phrases=[],
+                    generated=False,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+            continue
+
+        results.append(
+            GenerationCaseResult(
+                case_id=case_id,
+                query=query,
+                generator_label=label,
+                answer=answer,
+                source_job_ids=list(source_ids),
+                expected_source_job_ids=expected_source_job_ids,
+                missing_expected_source_ids=list(missing_expected),
+                ungrounded_urls=find_ungrounded_link_urls(answer, allowed_urls),
+                ungrounded_phrases=find_ungrounded_job_detail_phrases(
+                    answer, document_texts
+                ),
+                generated=True,
+                error=None,
+            )
+        )
+
+    return results
 
 
 def compare_generators(
@@ -117,6 +233,11 @@ def compare_generators(
     Seeds a disposable collection under the current (or provided) embedding
     model. Does not mutate ``get_generator()``; callers pass constructed
     Generator instances (see ``build_generator``).
+
+    Context truncation matches ``api/main.py``: Ollama uses
+    ``ollama_max_chars_per_job``, other providers pass full document text.
+    Per-call generation failures are recorded on ``GenerationCaseResult.error``
+    without aborting the rest of the run.
     """
     if not generators:
         raise ValueError("compare_generators requires at least one generator")
@@ -154,52 +275,15 @@ def compare_generators(
                 response.points,
                 min_score=score_floor,
             )
-            source_ids, allowed_urls, document_texts = _source_ids_and_urls(
-                list(usable_points)
-            )
-            missing_expected = [
-                job_id for job_id in expected_ids if job_id not in source_ids
-            ]
-
-            if not usable_points:
-                for label in labels:
-                    results.append(
-                        GenerationCaseResult(
-                            case_id=case_id,
-                            query=query,
-                            generator_label=label,
-                            answer="",
-                            source_job_ids=[],
-                            expected_source_job_ids=expected_ids,
-                            missing_expected_source_ids=missing_expected,
-                            ungrounded_urls=[],
-                            ungrounded_phrases=[],
-                            generated=False,
-                        )
-                    )
-                continue
-
-            context = format_job_context(
-                [cast(dict[str, Any], point.payload) for point in usable_points]
-            )
-            for label, generator in generators.items():
-                answer = generator.generate(context=context, question=query)
-                results.append(
-                    GenerationCaseResult(
-                        case_id=case_id,
-                        query=query,
-                        generator_label=label,
-                        answer=answer,
-                        source_job_ids=list(source_ids),
-                        expected_source_job_ids=expected_ids,
-                        missing_expected_source_ids=list(missing_expected),
-                        ungrounded_urls=find_ungrounded_link_urls(answer, allowed_urls),
-                        ungrounded_phrases=find_ungrounded_job_detail_phrases(
-                            answer, document_texts
-                        ),
-                        generated=True,
-                    )
+            results.extend(
+                run_generators_for_case(
+                    case_id=case_id,
+                    query=query,
+                    expected_source_job_ids=expected_ids,
+                    usable_points=list(usable_points),
+                    generators=generators,
                 )
+            )
     finally:
         if not keep_collection:
             delete_collections(qdrant, [collection_name])

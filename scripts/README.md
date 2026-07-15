@@ -128,6 +128,8 @@ Library: `evals.generation.compare_generators` / `build_generator`.
 ```bash
 uv run python scripts/compare_generators.py --providers stub
 uv run python scripts/compare_generators.py --providers gemini ollama:qwen3:8b
+# Lower top-k for Ollama (CPU-bound); mirrors CONTRIBUTING.md local-dev guidance
+uv run python scripts/compare_generators.py --providers ollama:qwen3:8b --top-k 3
 ```
 
 Per answer the harness records:
@@ -136,6 +138,9 @@ Per answer the harness records:
 - retrieved `source_job_ids` vs `expected_source_job_ids`
 - ungrounded markdown link URLs (`find_ungrounded_link_urls`)
 - ungrounded link-label phrases (`find_ungrounded_job_detail_phrases`)
+- per-call `error` when generation fails (rate-limit / unavailable / config) — other cases/providers continue
+
+Context truncation matches `POST /chat`: Ollama gets `OLLAMA_MAX_CHARS_PER_JOB` (default 1200) per job; Gemini/stub do not truncate.
 
 **`mock_answer_substring` is not checked.** That fixture field only applies to
 `ScriptedGenerator` in `tests/db/test_generation.py`; it has no meaningful
@@ -145,6 +150,9 @@ Labels: `gemini`, `gemini:<model>`, `ollama`, `ollama:<model>`, `stub`.
 Constructors copy `LLMSettings` with overrides — they do **not** mutate the
 cached `get_generator()` singleton.
 
+Useful flags: `--top-k N`, `--min-score T`, `--keep-collection` (singular — this script seeds one collection).
+
+**Keep-collection flag naming:** embedding comparison uses `--keep-collections` (plural; N models → N collections). Generation and min-score sweep use `--keep-collection` (singular; one disposable collection each).
 ## 4. `CHAT_SOURCE_MIN_SCORE` sweep
 
 Seeds golden jobs into `JOBS_COMPARE_MIN_SCORE_SWEEP`, queries once, then

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from qdrant_client import QdrantClient
 
 from db import query_jobs_in_qdrant
@@ -23,6 +26,8 @@ DEFAULT_MODELS: list[str] = [
     "all-MiniLM-L6-v2",
     "intfloat/multilingual-e5-small",
 ]
+
+ProgressCallback = Callable[[str], None]
 
 
 def summarize_query_results(model: str, results: list[QueryResult]) -> ModelSummary:
@@ -57,7 +62,7 @@ def run_golden_queries_against(
     client: QdrantClient,
     collection_name: str,
     model: str,
-    golden_set: dict,
+    golden_set: dict[str, Any],
 ) -> list[QueryResult]:
     """Run golden queries against one seeded collection; return structured results."""
     with embedding_model_override(model):
@@ -106,19 +111,39 @@ def compare_embedding_models(
     *,
     keep_collections: bool = False,
     client: QdrantClient | None = None,
+    progress: ProgressCallback | None = None,
 ) -> EmbeddingComparisonResult:
     """Seed disposable collections and compare models on the golden query set.
 
     Returns structured results suitable for CLIs and UI (ALE-146). Creates
     ``JOBS_COMPARE_*`` collections and deletes them unless ``keep_collections``.
+
+    ``progress``, when provided, receives human-readable status lines (CLI
+    progress); the library itself does not print.
     """
+
+    def _progress(message: str) -> None:
+        if progress is not None:
+            progress(message)
+
     validate_qdrant_config()
     cloud_mode = uses_cloud_inference()
+    if cloud_mode:
+        _progress("Qdrant Cloud detected — using Cloud Inference.")
+    else:
+        _progress("Local / non-Cloud Qdrant — resolving via FastEmbed aliases.")
+
     chosen = list(models) if models is not None else list(DEFAULT_MODELS)
     if len(chosen) < 2:
         raise ValueError("compare_embedding_models requires at least two models")
 
-    resolved = [resolve_model_name(name, cloud_mode=cloud_mode) for name in chosen]
+    resolved: list[str] = []
+    for name in chosen:
+        resolved_name = resolve_model_name(name, cloud_mode=cloud_mode)
+        if resolved_name != name:
+            _progress(f"Resolved model alias: {name!r} -> {resolved_name!r}")
+        resolved.append(resolved_name)
+
     qdrant = client if client is not None else get_comparison_client()
     golden_set = load_golden_queries()
 
@@ -128,18 +153,34 @@ def compare_embedding_models(
 
     for model, collection_name in collection_names.items():
         if qdrant.collection_exists(collection_name):
+            _progress(f"Dropping pre-existing {collection_name!r} before reseeding...")
             qdrant.delete_collection(collection_name)
+        _progress(f"Seeding {collection_name!r} with model {model!r}...")
         seed_collection_for_model(qdrant, collection_name, model)
+        info = qdrant.get_collection(collection_name)
+        _progress(
+            f"Collection {collection_name!r}: status={info.status}, "
+            f"points={info.points_count}"
+        )
 
     results_by_model: dict[str, list[QueryResult]] = {}
     summaries: dict[str, ModelSummary] = {}
+    _progress("Running golden queries against seeded collections...")
     for model, collection_name in collection_names.items():
         results = run_golden_queries_against(qdrant, collection_name, model, golden_set)
         results_by_model[model] = results
         summaries[model] = summarize_query_results(model, results)
 
     if not keep_collections:
+        _progress("Cleaning up disposable comparison collections...")
         delete_collections(qdrant, list(collection_names.values()))
+    else:
+        _progress(
+            "Keeping collections: "
+            + ", ".join(
+                f"{model!r}->{name!r}" for model, name in collection_names.items()
+            )
+        )
 
     return EmbeddingComparisonResult(
         models=resolved,

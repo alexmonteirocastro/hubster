@@ -56,6 +56,7 @@ class GenerationCaseResult:
     ungrounded_urls: list[str]
     ungrounded_phrases: list[str]
     generated: bool
+    error: str | None = None
 
 
 @dataclass

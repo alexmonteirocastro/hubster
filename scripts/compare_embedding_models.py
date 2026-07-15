@@ -120,20 +120,13 @@ def main() -> int:
         result = compare_embedding_models(
             args.models,
             keep_collections=args.keep_collections,
+            progress=print,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     _print_comparison_table(result)
-
-    if args.keep_collections:
-        kept = ", ".join(
-            f"{model!r}->{name!r}" for model, name in result.collection_names.items()
-        )
-        print(f"\nKept collections: {kept}.")
-    else:
-        print("\nCleaned up disposable comparison collections.")
     return 0
 
 
