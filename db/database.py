@@ -327,19 +327,19 @@ def query_jobs_in_qdrant(
 ) -> QueryResponse:
     """Hybrid dense+BM25 RRF retrieval with dense scores for the chat floor.
 
-    Ranks via a single fused ``query_points`` (Decision 3). Attaches dense cosine
-    scores via a companion dense query in the same ``query_batch_points`` request
-    so identical E5 ``Document`` objects are embedded once (Cloud Inference
-    request-level dedupe). Ranking stays RRF; scoring for ``CHAT_SOURCE_MIN_SCORE``
-    stays dense cosine (Decision 7).
+    Ranks via a single fused query (Decision 3). Attaches dense cosine scores via
+    a companion dense query in the same ``query_batch_points`` request, reusing
+    one E5 ``Document`` instance for the dense prefetch and companion legs as a
+    best-effort client-side shape (Cloud Inference request-level dedupe is not
+    confirmed — see ADR-0010 Decision 7). Ranking stays RRF; scoring for
+    ``CHAT_SOURCE_MIN_SCORE`` stays dense cosine (Decision 7).
     """
     embedding_model = get_settings().embedding_model
     dense_vector_name = get_dense_vector_name(db_client, collection_name)
     sparse_vector_name = BM25_SPARSE_VECTOR_NAME
     query_filter = _build_country_remote_filter(country, remote)
 
-    # Shared Document instance so Cloud Inference embeds the E5 query once per
-    # query_batch_points request (identical inference objects are deduped).
+    # Shared Document instance — best-effort; server-side embed dedupe unconfirmed.
     dense_query = models.Document(text=query_text, model=embedding_model)
     sparse_query = models.Document(text=query_text, model=BM25_SPARSE_MODEL)
     # Prefetch wider than final limit so RRF sees BM25-strong hits that sit

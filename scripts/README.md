@@ -175,6 +175,18 @@ rank-order-only and do not have a score-floor semantic.
 Output columns: expected survivors / misses, confuser survivors (from role-confusion
 cases). Suggests the maximum threshold where every expected hit still survives.
 
+## Cloud Inference Document dedupe probe (ALE-143)
+
+Latency comparison for ADR-0010 Decision 7's shared-`Document` shape vs two
+separate identical `Document`s in the same `query_batch_points` batch. Results
+are often ambiguous on free-tier clusters — see the script docstring and
+ADR-0010 revisit triggers.
+
+```bash
+uv run python scripts/verify_inference_dedupe.py
+uv run python scripts/verify_inference_dedupe.py --reps 50 --keep-collection
+```
+
 ## Relationship to pytest retrieval tests
 
 | | `pytest -m retrieval` | These scripts / `evals/` |

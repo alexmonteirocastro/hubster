@@ -76,7 +76,9 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 
 **Decision:** After RRF ranking, attach each hit's **pre-fusion dense cosine** to `hit.score` for `CHAT_SOURCE_MIN_SCORE` / `filter_chat_retrieval_points`. Keep `DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.85` (ADR-0014 / ALE-138 calibration). Do **not** recalibrate the floor against the RRF rank-sum scale.
 
-**How scores are obtained:** Qdrant's fused `query_points` response after `FusionQuery(fusion=Fusion.RRF)` exposes only the RRF rank-sum in `point.score` — not per-leg dense/sparse scores (confirmed from Qdrant hybrid-query docs; not a runtime unknown for ALE-143). Implementation therefore issues a **companion dense-only query** in the same `query_batch_points` request as the fused query, sharing one E5 `Document` instance so Cloud Inference embeds the query text once ([identical inference objects in a single request are deduped](https://qdrant.tech/documentation/inference/inference-api/)). Ranking order comes from RRF; scores come from the companion map.
+**How scores are obtained:** Qdrant's fused `query_points` response after `FusionQuery(fusion=Fusion.RRF)` exposes only the RRF rank-sum in `point.score` — not per-leg dense/sparse scores (confirmed from Qdrant hybrid-query docs; not a runtime unknown for ALE-143). Implementation therefore issues a **companion dense-only query** in the same `query_batch_points` request as the fused query, reusing one shared E5 `Document` instance for the dense prefetch leg and the companion query. Ranking order comes from RRF; scores come from the companion map.
+
+Whether Cloud Inference deduplicates those identical `Document` payloads into a single embed is **not confirmed** (no public docs describe request-level dedupe; Qdrant `/metrics`/`/telemetry` do not expose per-model inference counts). The shared-object shape is retained as a best-effort client-side optimization — it may still embed the query twice per `/chat` call. See accepted risks and revisit triggers below. Latency scaffolding for a future check lives in `scripts/verify_inference_dedupe.py`.
 
 **Decision 3 exception (named explicitly):** The companion query reintroduces a second Qdrant query, narrowly for **floor-scoring** purposes only. Ranking itself remains single-query RRF per Decision 3. This is a deliberate, documented exception — not an unexplained contradiction.
 
@@ -99,7 +101,7 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 
 **Negative / accepted risks:**
 
-- Companion dense query adds a second Qdrant round-trip in the same batch request (Decision 7 / Decision 3 exception). Mitigated by request-level E5 Document dedupe and batching; not zero cost.
+- Companion dense query adds a second Qdrant query in the same `query_batch_points` batch (Decision 7 / Decision 3 exception). Batching avoids a serial round trip, but Cloud Inference may still embed the E5 query text twice per `/chat` call — request-level Document dedupe is **unconfirmed**. Treated as an accepted cost/latency risk pending empirical confirmation or a reply from Qdrant.
 - Does not address the multilingual/title-overlap confound (Decision 6) — a known, named gap, not silently dropped.
 - BM25 sparse matching can itself be gamed by keyword-stuffed postings in a way dense embeddings partially resist. Not observed in current data, but worth naming as a new failure mode this change could introduce.
 - Role/topic confusion (ALE-151) is a distinct failure mode; hybrid search is not assumed to fix it.
@@ -110,3 +112,4 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 - If the Kubernetes/multilingual confound recurs across multiple queries (not just the one observed case), scope a dedicated ADR for non-English/title-overlap handling rather than folding it in here (see ALE-129).
 - If the 3-pair adversarial golden set proves insufficient, expand it — this is explicitly the lighter-weight version of the fuller adversarial eval ALE-92 recommends as future work.
 - **Role/topic confusion (ALE-151):** The "frontend jobs in Copenhagen" case remains a distinct failure mode from keyword/tech-stack precision. **ALE-143 verification (2026-07-16):** `test_role_confusion_cases` still fails under fused RRF + dense-score floor (`cph002` ≈ 0.852 above 0.85). Documented in `docs/findings/0002-role-confusion-frontend-copenhagen-findings.md`. Follow-up directions there (role-aware payload filtering, query intent parsing, or post-retrieval role re-ranking) need a dedicated ADR/ticket — not silently dropped.
+- **Cloud Inference Document dedupe (Decision 7):** If production or `scripts/verify_inference_dedupe.py` shows the companion dense query meaningfully doubles E5 inference cost/latency, revisit: ask Qdrant for an official embed-once API, cache the dense query vector client-side within a request, or accept the cost explicitly with monitoring.

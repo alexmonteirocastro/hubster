@@ -369,7 +369,7 @@ def test_query_jobs_in_qdrant_uses_rrf_prefetch_and_companion_batch(monkeypatch)
     assert companion_request.using == "fast-bge-small-en"
     assert fused_request.prefetch[0].limit == 20
     assert fused_request.prefetch[1].limit == 20
-    # Same Document instance → Cloud Inference embeds E5 once per batch request.
+    # Same Document instance (best-effort; server-side embed dedupe unconfirmed).
     assert fused_request.prefetch[0].query is companion_request.query
 
 
