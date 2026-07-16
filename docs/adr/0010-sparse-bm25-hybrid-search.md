@@ -101,7 +101,7 @@ Whether Cloud Inference deduplicates those identical `Document` payloads into a 
 
 **Negative / accepted risks:**
 
-- Companion dense query adds a second Qdrant query in the same `query_batch_points` batch (Decision 7 / Decision 3 exception). Batching avoids a serial round trip, but Cloud Inference may still embed the E5 query text twice per `/chat` call — request-level Document dedupe is **unconfirmed**. Treated as an accepted cost/latency risk pending empirical confirmation or a reply from Qdrant.
+- Companion dense query adds a second Qdrant query in the same `query_batch_points` batch (Decision 7 / Decision 3 exception). Batching avoids a serial round trip, but Cloud Inference may still embed the E5 query text twice per `/chat` call — request-level Document dedupe is **unconfirmed**. Treated as an accepted cost/latency risk pending empirical confirmation or a reply from Qdrant. **Magnitude:** worst case is a second free-tier small-model embed on the same request, likely single-digit to low-double-digit milliseconds of inference compute (and still drowned by ~500 ms free-tier RTT in the 2026-07-17 latency probe) — not a meaningful cost concern on the current Cloud Inference free tier, and not a Render memory concern (both dense and BM25 stay server-side).
 - Does not address the multilingual/title-overlap confound (Decision 6) — a known, named gap, not silently dropped.
 - BM25 sparse matching can itself be gamed by keyword-stuffed postings in a way dense embeddings partially resist. Not observed in current data, but worth naming as a new failure mode this change could introduce.
 - Role/topic confusion (ALE-151) is a distinct failure mode; hybrid search is not assumed to fix it.
