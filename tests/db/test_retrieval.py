@@ -165,7 +165,11 @@ def _assert_expected_outranks_confusers(
     label: str,
     min_score: float | None = None,
 ) -> None:
-    """Expected jobs must appear, optionally clear the floor, and outrank confusers."""
+    """Expected jobs must appear, optionally clear the floor, and outrank confusers.
+
+    "Outrank" means better position in the returned hit list (RRF order under
+    ADR-0010), not a higher dense cosine — dense scores are for the floor only.
+    """
     returned_job_ids = _job_ids_from_hits(hits)
     scores = _scores_by_job_id(hits)
     case_id = case["id"]
@@ -178,6 +182,12 @@ def _assert_expected_outranks_confusers(
         f"in top results. Returned: {returned_job_ids}"
     )
 
+    expected_ranks = [
+        returned_job_ids.index(job_id)
+        for job_id in case["expected_job_ids"]
+        if job_id in returned_job_ids
+    ]
+    best_expected_rank = min(expected_ranks)
     expected_scores = [
         scores[job_id] for job_id in case["expected_job_ids"] if job_id in scores
     ]
@@ -190,15 +200,16 @@ def _assert_expected_outranks_confusers(
         )
 
     for confuser_id in case["confuser_job_ids"]:
-        confuser_score = scores.get(confuser_id)
-        if confuser_score is None:
+        if confuser_id not in returned_job_ids:
             continue
-        assert confuser_score < best_expected_score, (
+        confuser_rank = returned_job_ids.index(confuser_id)
+        assert confuser_rank > best_expected_rank, (
             f"{label} case '{case_id}': confuser {confuser_id} "
-            f"({confuser_score:.3f}) outranks expected job(s) "
-            f"({best_expected_score:.3f})."
+            f"(rank {confuser_rank}) outranks expected job(s) "
+            f"(best rank {best_expected_rank}). Returned: {returned_job_ids}"
         )
         if min_score is not None:
+            confuser_score = scores[confuser_id]
             assert confuser_score < min_score, (
                 f"{label} case '{case_id}': confuser {confuser_id} "
                 f"({confuser_score:.3f}) survives CHAT_SOURCE_MIN_SCORE={min_score}."
@@ -220,7 +231,7 @@ def _assert_tech_stack_adversarial_case(case: dict, hits) -> None:
 @pytest.mark.retrieval
 @pytest.mark.xfail(
     reason="ALE-151: role confusion (frontend vs Sales/BD in Copenhagen); "
-    "re-run without xfail after ALE-143 (ADR-0010 hybrid search) ships.",
+    "still fails after ALE-143 hybrid search — see docs/findings/0002.",
     strict=True,
 )
 def test_role_confusion_cases(retrieval_qdrant):
@@ -241,11 +252,6 @@ def test_role_confusion_cases(retrieval_qdrant):
 
 
 @pytest.mark.retrieval
-@pytest.mark.xfail(
-    reason="ALE-145: ADR-0010 tech-stack adversarial pairs (Python/FastAPI, Go, "
-    "Terraform); re-run without xfail after ALE-143 (hybrid search) ships.",
-    strict=True,
-)
 def test_tech_stack_adversarial_cases(retrieval_qdrant):
     """Regression guard for keyword/tech-stack precision (findings 0001 Cases 1–3)."""
     client, collection_name = retrieval_qdrant

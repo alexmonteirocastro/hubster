@@ -1,8 +1,8 @@
 # ADR-0010: Sparse/BM25 Hybrid Search
 
-* **Status:** Proposed
-* **Date:** 2026-07-11
-* **Related:** ADR-0002 (retrieval filtering strategy — this ADR's own revisit trigger), ALE-92 (spike), docs/findings/0001-keyword-tech-stack-retrieval-gap-findings.md (evidence), ALE-116 (lands the findings doc)
+* **Status:** Accepted
+* **Date:** 2026-07-11 (Decision 7 landed 2026-07-16 with ALE-143)
+* **Related:** ADR-0002 (retrieval filtering strategy — this ADR's own revisit trigger), ADR-0014 (E5 + Cloud Inference — dense path this ADR builds on), ALE-92 (spike), ALE-143 (implementation), docs/findings/0001-keyword-tech-stack-retrieval-gap-findings.md (evidence), ALE-116 (lands the findings doc)
 
 ## Context
 
@@ -19,38 +19,38 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 **Rationale:**
 
 - The evidence clears the pre-registered 25% threshold (37.5% observed), and the three clean cases (Python/FastAPI, Go, Terraform) share a consistent, unconfounded mechanism: a job that names a technology once in passing outranks a job that names it as an explicit, framework-qualified requirement. That's a real gap dense embeddings alone won't close, since embedding similarity is fundamentally a topical/semantic measure, not a term-frequency one.
-- This does not replace dense retrieval or ADR-0002's structured filtering — it's additive. Country/remote filtering (ADR-0002 Decision 1) and the similarity floor (ADR-0002 Decision 4) continue to run unchanged; this only changes how the *ranking* within a filtered candidate set is computed.
+- This does not replace dense retrieval or ADR-0002's structured filtering — it's additive. Country/remote filtering (ADR-0002 Decision 1) continues to run unchanged; ranking within the filtered candidate set uses fused dense+sparse RRF. The similarity floor (ADR-0002 Decision 4) also continues, but its score semantics are resolved explicitly in Decision 7 (not assumed identical to pre-fusion `hit.score`).
 
-## Decision 2: Qdrant's built-in BM25 sparse embedding (FastEmbed), not SPLADE or a custom `rank_bm25` script
+## Decision 2: Qdrant's BM25 sparse embedding via Cloud Inference — not SPLADE, not a custom `rank_bm25` script, not in-process FastEmbed
 
-**Decision:** Use FastEmbed's BM25 sparse model (`Qdrant/bm25`) via `qdrant-client[fastembed]` — already a project dependency — rather than a neural sparse model (SPLADE) or a hand-rolled `rank_bm25` scoring pass.
+**Decision:** Use Qdrant's BM25 sparse model (`qdrant/bm25`) via `models.Document` with Qdrant Cloud Inference (`cloud_inference=True`) — the same server-side embedding path ADR-0014 established for dense E5 — rather than a neural sparse model (SPLADE), a hand-rolled `rank_bm25` scoring pass, or loading FastEmbed's BM25 ONNX model in the Render process.
 
 **Rationale:**
 
-- Same reasoning ADR-0001 used for dense embeddings and ADR-0002 used for filter extraction: don't add a component whose cost or complexity the current evidence doesn't call for. SPLADE requires downloading and running a second neural model in-process — real compute/memory cost on the same CPU-only dev hardware (ADR-0007's constraint) for a precision gain the evidence doesn't yet show BM25 can't already close (all three confirmed cases are plain term-frequency/specificity gaps, not the kind of learned-term-expansion problem SPLADE targets).
-- `qdrant-client[fastembed]` already ships FastEmbed's sparse BM25 support — no new dependency, no new model download infrastructure beyond what ingestion already does for the dense model.
-- A hand-rolled `rank_bm25` script would mean maintaining a second scoring path outside Qdrant entirely (fetch candidates, score in Python, re-sort) — more code to own, and loses Qdrant's native fused-query execution (Decision 3).
+- Same reasoning ADR-0001 used for dense embeddings and ADR-0002 used for filter extraction: don't add a component whose cost or complexity the current evidence doesn't call for. SPLADE requires downloading and running a second neural model in-process — real compute/memory cost for a precision gain the evidence doesn't yet show BM25 can't already close.
+- **ADR-0014 refinement (ALE-143):** The original draft assumed in-process FastEmbed BM25 because dense embedding also ran locally at the time. Dense now runs exclusively via Cloud Inference (E5 is not in local FastEmbed's registry). Loading any FastEmbed model on Render's free tier reintroduces the exact memory-crash failure ADR-0014 fixed. Qdrant's [Cloud Inference hybrid-search tutorial](https://qdrant.tech/documentation/tutorials-basics/cloud-inference-hybrid-search/) confirms `Document(text=..., model="qdrant/bm25")` is supported server-side alongside dense models — so BM25 stays out of the Render process entirely. Scope item 8 of ALE-143 is resolved by this path, not by hoping BM25 is "light enough."
+- A hand-rolled `rank_bm25` script would mean maintaining a second scoring path outside Qdrant entirely — more code to own, and loses Qdrant's native fused-query execution (Decision 3).
 
-## Decision 3: Reciprocal Rank Fusion via Qdrant's native `Query` API — not a Python-side merge
+## Decision 3: Reciprocal Rank Fusion via Qdrant's native `Query` API — not a Python-side merge for ranking
 
-**Decision:** Use Qdrant's `query_points` with `prefetch` (dense) and a `FusionQuery(fusion=Fusion.RRF)` to combine dense and sparse results server-side, rather than running two separate queries and merging/re-ranking in Python.
+**Decision:** Use Qdrant's `query_points` / `query_batch_points` with `prefetch` (dense + sparse) and a `FusionQuery(fusion=Fusion.RRF)` to combine dense and sparse results server-side for **ranking**, rather than running two separate queries and merging/re-ranking in Python.
 
 **Rationale:**
 
 - Mirrors ADR-0002 Decision 1's own precedent: filtering and vector search happen together during Qdrant's own traversal, not as sequential application-side passes. Fusion is a solved, native Qdrant capability; reimplementing RRF in Python would be redundant code solving an already-solved problem.
-- Country/remote payload filtering (ADR-0002) applies identically inside this fused query — no interaction effect to design around; the `query_filter` narrows candidates before or during traversal for both the dense and sparse prefetch legs.
+- Country/remote payload filtering (ADR-0002) applies identically inside this fused query — no interaction effect to design around; the query filter narrows candidates for both the dense and sparse prefetch legs.
+- **Narrow exception for scoring only:** Decision 7 introduces a companion dense query in the same `query_batch_points` request. That is a deliberate, scoring-only exception to "no second query" — ranking itself remains single-query RRF. See Decision 7.
 
 ## Decision 4: Add the sparse vector in-place via `qdrant-client` ≥1.18.0 — not a new collection
 
-**Decision:** Bump `qdrant-client[fastembed]` from the currently pinned `1.16.2` to `>=1.18.0`, then add the sparse vector to the *existing* collection in place via the client's named-vector API (`create_vector_name`, backed by `PUT /collections/{collection_name}/vectors/{vector_name}`) — not a new collection with a migration/cutover.
+**Decision:** Add the sparse vector to the *existing* collection in place via the client's named-vector API (`create_vector_name`, backed by `PUT /collections/{collection_name}/vectors/{vector_name}`) — not a new collection with a migration/cutover. The `qdrant-client[fastembed]>=1.18.0` bump required for this API was completed under ADR-0014; ALE-143 confirms it and does not re-bump.
 
 **Rationale:**
 
-- Qdrant added exactly this capability — adding/removing named vectors on an existing collection without recreation — as of server v1.18.0, with matching client support landing in `qdrant-client` 1.18.0 (released May 11, 2026). The "materially bigger decision" ADR-0002 flagged when it named this revisit trigger assumed the older recreate-only behavior; that constraint no longer holds.
+- Qdrant added exactly this capability — adding/removing named vectors on an existing collection without recreation — as of server v1.18.0, with matching client support landing in `qdrant-client` 1.18.0. The "materially bigger decision" ADR-0002 flagged when it named this revisit trigger assumed the older recreate-only behavior; that constraint no longer holds.
 - Dense vectors, payload, and point IDs are untouched entirely — only the sparse vector field is added to the collection schema, then computed and upserted for existing points. No new collection name, no `QDRANT_COLLECTION_NAME_V2`, no dual-collection rollback window.
-- **What still needs doing:** every existing point still needs its BM25 sparse vector computed once and upserted (points don't retroactively gain a vector just because the collection schema changed) — via a `--backfill`-style script mirroring ALE-81's pattern, not a from-scratch reindex.
-- **Named risk, explicitly:** bumping `qdrant-client` two minor versions (1.16.2 → 1.18.0) is a real dependency change, not a no-op. The 1.17.0 release changed the gRPC vector response format, and recent releases removed several already-deprecated methods (`search`, `recommend`, `discovery`, `upload_records`, and others). This needs explicit re-verification against the actual codebase before merging the bump, plus a full run of the unit + retrieval golden-set suite (ALE-68) against the upgraded client. **Left as an open item for the implementation ticket, not resolved here.**
-- **Rollout plan:** bump the dependency → add the sparse vector field to the collection (schema-only, instant) → run the backfill script for existing points → deploy the fusion-query code last. Because no second collection exists, the collection stays fully queryable on dense-only retrieval throughout — if the backfill fails partway, nothing regresses, since existing code paths don't reference the new vector until the fusion query itself ships. This is incremental, not an all-or-nothing cutover.
+- **What still needs doing:** every existing point still needs its BM25 sparse vector computed once and upserted (points don't retroactively gain a vector just because the collection schema changed) — via `--backfill-sparse` mirroring ALE-81's pattern, not a from-scratch reindex.
+- **Rollout plan:** add the sparse vector field to the collection (schema-only) → run the backfill script for existing points → deploy the fusion-query code last. Because no second collection exists, the collection stays fully queryable on dense-only retrieval throughout — if the backfill fails partway, nothing regresses, since existing code paths don't reference the new vector until the fusion query itself ships. This is incremental, not an all-or-nothing cutover.
 
 ## Decision 5: Extend the golden set with the three confirmed adversarial pairs before shipping
 
@@ -60,6 +60,7 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 
 - ALE-92's own "Related finding" flagged this directly: there is currently no repeatable way to check whether a specific job outranks a confusable competitor, only ad hoc manual `document_text` inspection. Shipping a ranking change without a regression guard for the exact cases that motivated it repeats the same evidentiary gap ADR-0001 Decision 5 was designed to close for generation quality.
 - Deliberately scoped as a small, targeted addition (3 pairs) — not the full adversarial eval framework ALE-92 recommends as a separate future effort. That stays out of scope here.
+- **Status (ALE-145 / ALE-143):** The three pairs shipped in ALE-145 as `tech_stack_adversarial_cases` with `xfail(strict=True)`. ALE-143 removes the `xfail` once the fused query makes them pass.
 
 ## Decision 6: The Kubernetes/multilingual confound is an explicit revisit trigger, not solved by this ADR
 
@@ -69,26 +70,43 @@ One case in that evidence (Kubernetes/Six Robotics vs. Framna) carries a confoun
 
 - A sparse BM25 term-match can favor an exact title-phrase match just as easily as the dense embedding did — hybrid search doesn't structurally solve "the wrong job's title happens to repeat the query verbatim." Claiming it does would overstate what this change delivers.
 - The fix for that specific sub-case (e.g., normalizing/flagging non-English postings, or weighting title vs. body differently) is a distinct problem deserving its own evidence-gathering, not a bundled fix here.
+- **Follow-up:** ALE-129 tracks language-detection / translation options for this confound.
+
+## Decision 7: Filter `CHAT_SOURCE_MIN_SCORE` on dense cosine — not the fused RRF score
+
+**Decision:** After RRF ranking, attach each hit's **pre-fusion dense cosine** to `hit.score` for `CHAT_SOURCE_MIN_SCORE` / `filter_chat_retrieval_points`. Keep `DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.85` (ADR-0014 / ALE-138 calibration). Do **not** recalibrate the floor against the RRF rank-sum scale.
+
+**How scores are obtained:** Qdrant's fused `query_points` response after `FusionQuery(fusion=Fusion.RRF)` exposes only the RRF rank-sum in `point.score` — not per-leg dense/sparse scores (confirmed from Qdrant hybrid-query docs; not a runtime unknown for ALE-143). Implementation therefore issues a **companion dense-only query** in the same `query_batch_points` request as the fused query, sharing one E5 `Document` instance so Cloud Inference embeds the query text once ([identical inference objects in a single request are deduped](https://qdrant.tech/documentation/inference/inference-api/)). Ranking order comes from RRF; scores come from the companion map.
+
+**Decision 3 exception (named explicitly):** The companion query reintroduces a second Qdrant query, narrowly for **floor-scoring** purposes only. Ranking itself remains single-query RRF per Decision 3. This is a deliberate, documented exception — not an unexplained contradiction.
+
+**Missing dense score → fail the floor:** Hybrid search can (and should) surface BM25-only hits that never appear in the dense companion's top-k. Those hits have no dense cosine to attach. Treat them as failing `CHAT_SOURCE_MIN_SCORE` (implementation uses `MISSING_DENSE_SCORE = -1.0`). The companion dense query's `limit` is intentionally **not padded** to chase BM25-only hits — widening it would defeat this rule.
+
+**Rationale:**
+
+- Preserves the floor's existing, already-calibrated meaning (a cosine-similarity noise gate) rather than requiring a fresh calibration against an unfamiliar RRF scale (~0.01–0.03 for default `k=60`).
+- Applying `0.85` to raw RRF scores would filter out every result and silently break `/chat` sources — the failure mode Decision 1's "floor continues unchanged" glossed over.
 
 ## Consequences
 
 **Positive:**
 
-- Directly addresses a confirmed, evidence-backed retrieval gap (37.5% failure rate on tagged queries) using infrastructure already in the dependency tree (FastEmbed), no new model to host.
-- Reuses Qdrant's native fused-query execution rather than adding a parallel Python-side ranking layer — keeps retrieval logic in one place, consistent with ADR-0002 Decision 1's precedent.
-- Leaves ADR-0002's country/remote filtering and similarity floor untouched — additive, not a rewrite.
-- No new collection or migration/cutover needed — the in-place named-vector API (`qdrant-client` ≥1.18.0) means this is an additive schema change, not a full reindex, substantially lowering the risk ADR-0002 anticipated when it flagged this as a "materially bigger decision."
-- Adds a permanent regression guard (Decision 5) for the exact failure cases that motivated this change.
+- Directly addresses a confirmed, evidence-backed retrieval gap (37.5% failure rate on tagged queries) using Cloud Inference BM25 — no new model hosted in the Render process (ADR-0014-compatible).
+- Reuses Qdrant's native fused-query execution for ranking — keeps ranking logic in one place, consistent with ADR-0002 Decision 1's precedent.
+- Leaves ADR-0002's country/remote filtering and similarity-floor *semantics* intact — additive ranking change; floor still gates on dense cosine (Decision 7).
+- No new collection or migration/cutover needed — the in-place named-vector API (`qdrant-client` ≥1.18.0) means this is an additive schema change, not a full reindex.
+- Adds a permanent regression guard (Decision 5 / ALE-145) for the exact failure cases that motivated this change.
 
 **Negative / accepted risks:**
 
-- Requires bumping `qdrant-client` two minor versions (1.16.2 → 1.18.0) — needs explicit verification that no code paths use methods removed in that span, and that behavior is unchanged (e.g., the 1.17.0 gRPC vector response format change). Left open for the implementation ticket.
+- Companion dense query adds a second Qdrant round-trip in the same batch request (Decision 7 / Decision 3 exception). Mitigated by request-level E5 Document dedupe and batching; not zero cost.
 - Does not address the multilingual/title-overlap confound (Decision 6) — a known, named gap, not silently dropped.
 - BM25 sparse matching can itself be gamed by keyword-stuffed postings in a way dense embeddings partially resist. Not observed in current data, but worth naming as a new failure mode this change could introduce.
+- Role/topic confusion (ALE-151) is a distinct failure mode; hybrid search is not assumed to fix it.
 
 ## Revisit triggers
 
 - If BM25 keyword-stuffing (postings padding a technology list to game sparse-match scores) is observed in real transcripts, revisit fusion weighting or add a stuffing-detection heuristic.
-- If the Kubernetes/multilingual confound recurs across multiple queries (not just the one observed case), scope a dedicated ADR for non-English/title-overlap handling rather than folding it in here.
+- If the Kubernetes/multilingual confound recurs across multiple queries (not just the one observed case), scope a dedicated ADR for non-English/title-overlap handling rather than folding it in here (see ALE-129).
 - If the 3-pair adversarial golden set proves insufficient, expand it — this is explicitly the lighter-weight version of the fuller adversarial eval ALE-92 recommends as future work.
-- **Role/topic confusion (ALE-151):** The "frontend jobs in Copenhagen" case (`tests/fixtures/golden_queries.json` → `role_confusion_cases`) is a distinct failure mode from keyword/tech-stack precision. After ALE-143 ships, re-run `test_role_confusion_cases` without `xfail` and record pass/fail in `docs/findings/0002-role-confusion-frontend-copenhagen-findings.md`. If still failing, do not leave silently unresolved — the findings doc names likely fix directions (role-aware payload filtering, query intent parsing, or post-retrieval role re-ranking) for a follow-up ADR.
+- **Role/topic confusion (ALE-151):** The "frontend jobs in Copenhagen" case remains a distinct failure mode from keyword/tech-stack precision. **ALE-143 verification (2026-07-16):** `test_role_confusion_cases` still fails under fused RRF + dense-score floor (`cph002` ≈ 0.852 above 0.85). Documented in `docs/findings/0002-role-confusion-frontend-copenhagen-findings.md`. Follow-up directions there (role-aware payload filtering, query intent parsing, or post-retrieval role re-ranking) need a dedicated ADR/ticket — not silently dropped.

@@ -5,6 +5,7 @@ import requests
 from qdrant_client import QdrantClient, models
 
 from db.db_utils import INGEST_BATCH_SIZE
+from db.settings import BM25_SPARSE_MODEL, BM25_SPARSE_VECTOR_NAME
 from the_hub_client import scrape_job_offer_by_id
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,100 @@ def extract_title_company_from_document_text(
         return None
 
     return title_line[len(_JOB_TITLE_PREFIX) :], company_line[len(_COMPANY_PREFIX) :]
+
+
+def _point_has_sparse_bm25(point: object) -> bool:
+    vector = getattr(point, "vector", None)
+    if vector is None:
+        return False
+    if isinstance(vector, dict):
+        return vector.get(BM25_SPARSE_VECTOR_NAME) is not None
+    return False
+
+
+def backfill_sparse_bm25_vectors(
+    db_client: QdrantClient,
+    collection_name: str,
+) -> tuple[int, int]:
+    """One-time migration: compute BM25 sparse vectors for already-indexed points.
+
+    Idempotent — safe to re-run after an interrupted run. Skips points that already
+    have the sparse vector. Dense vectors are left untouched (``update_vectors``
+    only writes the BM25 named vector).
+
+    Returns:
+        (updated_count, skipped_count) for programmatic checks.
+    """
+    from db.database import ensure_sparse_bm25_vector
+
+    ensure_sparse_bm25_vector(db_client, collection_name)
+
+    updated_count = 0
+    skipped_count = 0
+    pending_points: list[models.PointVectors] = []
+    offset = None
+
+    def flush_batch() -> None:
+        nonlocal pending_points
+        if not pending_points:
+            return
+        db_client.update_vectors(
+            collection_name=collection_name,
+            points=pending_points,
+        )
+        pending_points = []
+
+    while True:
+        points, next_offset = db_client.scroll(
+            collection_name=collection_name,
+            limit=100,
+            offset=offset,
+            with_payload=["document_text", "job_url_identifier"],
+            with_vectors=[BM25_SPARSE_VECTOR_NAME],
+        )
+
+        for point in points:
+            if _point_has_sparse_bm25(point):
+                skipped_count += 1
+                continue
+
+            payload = point.payload or {}
+            document_text = payload.get("document_text")
+            if not document_text:
+                logger.warning(
+                    "Point %s missing document_text; skipping sparse backfill.",
+                    point.id,
+                )
+                skipped_count += 1
+                continue
+
+            pending_points.append(
+                models.PointVectors(
+                    id=point.id,
+                    vector={
+                        BM25_SPARSE_VECTOR_NAME: models.Document(
+                            text=document_text,
+                            model=BM25_SPARSE_MODEL,
+                        )
+                    },
+                )
+            )
+            updated_count += 1
+            if len(pending_points) >= INGEST_BATCH_SIZE:
+                flush_batch()
+
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    flush_batch()
+
+    logger.info(
+        "Sparse BM25 backfill complete: %d updated, %d skipped.",
+        updated_count,
+        skipped_count,
+    )
+    return updated_count, skipped_count
 
 
 def backfill_job_title_company_metadata(

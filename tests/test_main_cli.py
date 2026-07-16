@@ -114,3 +114,26 @@ def test_main_backfill_calls_backfill_and_skips_collection_setup(monkeypatch):
     mock_backfill.assert_called_once_with(mock_client, "JOBS_ON_THE_HUB")
     mock_create_collection.assert_not_called()
     mock_query_jobs.assert_not_called()
+
+
+def test_main_backfill_sparse_calls_backfill_and_skips_collection_setup(monkeypatch):
+    settings = SimpleNamespace(
+        qdrant_collection_name="JOBS_ON_THE_HUB",
+        qdrant_dev_collection_name="JOBS_DEV",
+    )
+    mock_client = MagicMock()
+    mock_backfill = MagicMock(return_value=(10, 0))
+    mock_create_collection = MagicMock()
+    mock_query_jobs = MagicMock()
+
+    monkeypatch.setattr("main.get_settings", lambda: settings)
+    monkeypatch.setattr("main.get_qdrant_client", lambda: mock_client)
+    monkeypatch.setattr("main.backfill_sparse_bm25_vectors", mock_backfill)
+    monkeypatch.setattr("main.create_collection", mock_create_collection)
+    monkeypatch.setattr("main.query_jobs_in_qdrant", mock_query_jobs)
+
+    main(mode="backfill-sparse")
+
+    mock_backfill.assert_called_once_with(mock_client, "JOBS_ON_THE_HUB")
+    mock_create_collection.assert_not_called()
+    mock_query_jobs.assert_not_called()

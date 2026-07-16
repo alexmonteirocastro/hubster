@@ -7,7 +7,12 @@ from uuid import UUID
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.models import QueryResponse, VectorParams
 
-from db.settings import get_settings
+from db.settings import (
+    BM25_SPARSE_MODEL,
+    BM25_SPARSE_VECTOR_NAME,
+    MISSING_DENSE_SCORE,
+    get_settings,
+)
 from the_hub_client import JobOpportunity
 from the_hub_client.models import (
     EU_COUNTRY_FILTER_EXCLUSIONS,
@@ -72,11 +77,16 @@ def job_id_to_point_id(job_id: str) -> str:
 
 
 def create_collection(db_client: QdrantClient, collection_name: str) -> None:
-    """check if collection exists, if not, create one"""
+    """Create collection with dense + BM25 sparse vectors if missing; ensure sparse."""
     if not db_client.collection_exists(collection_name):
         db_client.create_collection(
             collection_name=collection_name,
             vectors_config=db_client.get_fastembed_vector_params(),
+            sparse_vectors_config={
+                BM25_SPARSE_VECTOR_NAME: models.SparseVectorParams(
+                    modifier=models.Modifier.IDF
+                )
+            },
         )
         db_client.create_payload_index(
             collection_name=collection_name,
@@ -88,9 +98,32 @@ def create_collection(db_client: QdrantClient, collection_name: str) -> None:
             field_name="Remote",
             field_schema=models.PayloadSchemaType.BOOL,
         )
+    else:
+        ensure_sparse_bm25_vector(db_client, collection_name)
 
 
-def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
+def ensure_sparse_bm25_vector(db_client: QdrantClient, collection_name: str) -> bool:
+    """Add the BM25 sparse named vector in place if the collection lacks it.
+
+    Returns True when the vector was created, False when it already existed.
+    """
+    coll_info = db_client.get_collection(collection_name)
+    sparse_vectors = coll_info.config.params.sparse_vectors or {}
+    if BM25_SPARSE_VECTOR_NAME in sparse_vectors:
+        return False
+
+    db_client.create_vector_name(
+        collection_name=collection_name,
+        vector_name=BM25_SPARSE_VECTOR_NAME,
+        vector_name_config=models.SparseVectorNameConfig(
+            sparse=models.SparseVectorConfig(modifier=models.Modifier.IDF)
+        ),
+    )
+    return True
+
+
+def get_dense_vector_name(db_client: QdrantClient, collection_name: str) -> str:
+    """Return the dense named-vector key (or '' for an unnamed dense vector)."""
     coll_info = db_client.get_collection(collection_name)
     vectors = coll_info.config.params.vectors
     if vectors is None:
@@ -103,6 +136,24 @@ def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
         raise ValueError(f"Unsupported vector config for {collection_name!r}.")
 
     return available_vector_names[0]
+
+
+def get_vector_name(db_client: QdrantClient, collection_name: str) -> str:
+    """Alias for get_dense_vector_name (backward-compatible name)."""
+    return get_dense_vector_name(db_client, collection_name)
+
+
+def get_sparse_vector_name(db_client: QdrantClient, collection_name: str) -> str:
+    """Return the BM25 sparse vector name; raises if the collection lacks it."""
+    coll_info = db_client.get_collection(collection_name)
+    sparse_vectors = coll_info.config.params.sparse_vectors or {}
+    if BM25_SPARSE_VECTOR_NAME not in sparse_vectors:
+        raise ValueError(
+            f"Collection {collection_name!r} has no sparse vector "
+            f"{BM25_SPARSE_VECTOR_NAME!r}; run ensure_sparse_bm25_vector / "
+            "backfill first."
+        )
+    return BM25_SPARSE_VECTOR_NAME
 
 
 def load_jobs_into_qdrant(
@@ -140,12 +191,20 @@ def load_jobs_into_qdrant(
 
     jobs_ids = [job_id_to_point_id(job.job_id) for job in jobs]
 
-    vector_name = get_vector_name(db_client, collection_name)
+    dense_vector_name = get_dense_vector_name(db_client, collection_name)
+    sparse_vector_name = BM25_SPARSE_VECTOR_NAME
 
     points = [
         models.PointStruct(
             id=job_id,
-            vector={vector_name: models.Document(text=doc_text, model=embedding_model)},
+            vector={
+                dense_vector_name: models.Document(
+                    text=doc_text, model=embedding_model
+                ),
+                sparse_vector_name: models.Document(
+                    text=doc_text, model=BM25_SPARSE_MODEL
+                ),
+            },
             payload={**metadata, "document_text": doc_text},
         )
         for job_id, doc_text, metadata in zip(
@@ -204,18 +263,10 @@ def delete_jobs_from_qdrant(
     print(f"{len(point_ids)} stale jobs removed from the vector database")
 
 
-def query_jobs_in_qdrant(
-    db_client: QdrantClient,
-    collection_name: str,
-    query_text: str,
-    *,
-    limit: int = 5,
-    country: CountryCode | None = None,
-    remote: bool | None = None,
-) -> QueryResponse:
-    embedding_model = get_settings().embedding_model
-    vector_name = get_vector_name(db_client, collection_name)
-
+def _build_country_remote_filter(
+    country: CountryCode | None,
+    remote: bool | None,
+) -> models.Filter | None:
     filter_conditions: list[models.FieldCondition] = []
     if country is not None:
         # Hub's location.country string is stored verbatim in the Qdrant Country field.
@@ -245,17 +296,98 @@ def query_jobs_in_qdrant(
             )
         )
 
-    query_filter = models.Filter(must=filter_conditions) if filter_conditions else None
+    return models.Filter(must=filter_conditions) if filter_conditions else None
 
-    search_results = db_client.query_points(
-        collection_name=collection_name,
-        query=models.Document(text=query_text, model=embedding_model),
-        using=vector_name,
+
+def _attach_dense_scores_to_fused_hits(
+    fused_points: list[models.ScoredPoint],
+    dense_scores_by_id: dict[str | int | UUID, float],
+) -> list[models.ScoredPoint]:
+    """Rewrite RRF-ordered hits to carry dense cosine scores (ADR-0010 Decision 7).
+
+    Hits present in the fused ranking but absent from the companion dense query
+    receive MISSING_DENSE_SCORE so CHAT_SOURCE_MIN_SCORE excludes them.
+    """
+    merged: list[models.ScoredPoint] = []
+    for point in fused_points:
+        dense_score = dense_scores_by_id.get(point.id)
+        score = dense_score if dense_score is not None else MISSING_DENSE_SCORE
+        merged.append(point.model_copy(update={"score": score}))
+    return merged
+
+
+def query_jobs_in_qdrant(
+    db_client: QdrantClient,
+    collection_name: str,
+    query_text: str,
+    *,
+    limit: int = 5,
+    country: CountryCode | None = None,
+    remote: bool | None = None,
+) -> QueryResponse:
+    """Hybrid dense+BM25 RRF retrieval with dense scores for the chat floor.
+
+    Ranks via a single fused ``query_points`` (Decision 3). Attaches dense cosine
+    scores via a companion dense query in the same ``query_batch_points`` request
+    so identical E5 ``Document`` objects are embedded once (Cloud Inference
+    request-level dedupe). Ranking stays RRF; scoring for ``CHAT_SOURCE_MIN_SCORE``
+    stays dense cosine (Decision 7).
+    """
+    embedding_model = get_settings().embedding_model
+    dense_vector_name = get_dense_vector_name(db_client, collection_name)
+    sparse_vector_name = BM25_SPARSE_VECTOR_NAME
+    query_filter = _build_country_remote_filter(country, remote)
+
+    # Shared Document instance so Cloud Inference embeds the E5 query once per
+    # query_batch_points request (identical inference objects are deduped).
+    dense_query = models.Document(text=query_text, model=embedding_model)
+    sparse_query = models.Document(text=query_text, model=BM25_SPARSE_MODEL)
+    # Prefetch wider than final limit so RRF sees BM25-strong hits that sit
+    # outside the dense top-k; companion dense limit stays == limit (Decision 7).
+    prefetch_limit = max(limit * 4, 20)
+
+    fused_request = models.QueryRequest(
+        prefetch=[
+            models.Prefetch(
+                query=dense_query,
+                using=dense_vector_name,
+                filter=query_filter,
+                limit=prefetch_limit,
+            ),
+            models.Prefetch(
+                query=sparse_query,
+                using=sparse_vector_name,
+                filter=query_filter,
+                limit=prefetch_limit,
+            ),
+        ],
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
+        filter=query_filter,
         limit=limit,
-        query_filter=query_filter,
+        with_payload=True,
+    )
+    # intentionally not padded — see ADR-0010 Decision 7 missing-dense rule
+    companion_request = models.QueryRequest(
+        query=dense_query,
+        using=dense_vector_name,
+        filter=query_filter,
+        limit=limit,
+        with_payload=True,
     )
 
-    return search_results
+    fused_response, companion_response = db_client.query_batch_points(
+        collection_name=collection_name,
+        requests=[fused_request, companion_request],
+    )
+
+    dense_scores_by_id = {
+        point.id: float(point.score) for point in companion_response.points
+    }
+    merged_points = _attach_dense_scores_to_fused_hits(
+        list(fused_response.points),
+        dense_scores_by_id,
+    )
+    return QueryResponse(points=merged_points)
 
 
 def drop_db(db_client: QdrantClient, collection_name: str) -> None:
