@@ -48,9 +48,11 @@ describe("ChatInput", () => {
     ).toBeInTheDocument();
   });
 
-  it("flags the counter when the input is within the last 10% of the limit", async () => {
+  it("keeps the counter silent for screen readers until near the limit", async () => {
     const user = userEvent.setup();
     render(<ChatInput onSubmit={vi.fn()} disabled={false} />);
+
+    expect(screen.getByText(`0/${CHAT_QUESTION_MAX_LENGTH}`)).not.toHaveAttribute("aria-live");
 
     const nearLimitCount = Math.floor(CHAT_QUESTION_MAX_LENGTH * 0.9);
     const input = screen.getByLabelText(/ask a question about jobs/i);
@@ -59,6 +61,7 @@ describe("ChatInput", () => {
 
     const counter = screen.getByText(`${nearLimitCount}/${CHAT_QUESTION_MAX_LENGTH}`);
     expect(counter.className).toContain(styles.counterNearLimit);
+    expect(counter).toHaveAttribute("aria-live", "polite");
   });
 
   it("submits the trimmed question when under the limit and clears the input", async () => {

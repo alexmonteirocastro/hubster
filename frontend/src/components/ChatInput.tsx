@@ -49,7 +49,7 @@ export function ChatInput({ onSubmit, disabled }: ChatInputProps) {
         />
         <p
           className={`${styles.counter}${nearLimit ? ` ${styles.counterNearLimit}` : ""}`}
-          aria-live="polite"
+          aria-live={nearLimit ? "polite" : undefined}
         >
           {used}/{CHAT_QUESTION_MAX_LENGTH}
         </p>
