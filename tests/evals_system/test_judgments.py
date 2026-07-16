@@ -1,10 +1,10 @@
-"""Unit tests for streamlit_app.judgments (stdlib sqlite3 only)."""
+"""Unit tests for evals_system.judgments (stdlib sqlite3 only)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from streamlit_app.judgments import (
+from evals_system.judgments import (
     ensure_db,
     get_judgment,
     insert_judgment,

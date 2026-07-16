@@ -15,11 +15,11 @@ if str(_REPO_ROOT) not in sys.path:
 
 import streamlit as st
 
-from streamlit_app.embeddings_tab import render_embeddings_tab
-from streamlit_app.generation_tab import render_generation_tab
-from streamlit_app.judgments import ensure_db
-from streamlit_app.review import render_review_tab
-from streamlit_app.sweep_tab import render_sweep_tab
+from evals_system.embeddings_tab import render_embeddings_tab
+from evals_system.generation_tab import render_generation_tab
+from evals_system.judgments import ensure_db
+from evals_system.review import render_review_tab
+from evals_system.sweep_tab import render_sweep_tab
 
 st.set_page_config(
     page_title="Hubster eval review",
@@ -41,7 +41,7 @@ with st.sidebar:
         "(not HTTP `/chat`).\n"
         "- Sweep: **Run retrieval** once, then drag the threshold slider "
         "against cached scores.\n"
-        "- Judgments: `streamlit_app/data/judgments.db` (gitignored)."
+        "- Judgments: `evals_system/data/judgments.db` (gitignored)."
     )
 
 tab_review, tab_embed, tab_gen, tab_sweep = st.tabs(

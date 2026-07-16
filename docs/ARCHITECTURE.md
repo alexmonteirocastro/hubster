@@ -234,9 +234,13 @@ hubster/
 │   ├── database.py              # Qdrant collection CRUD, embedding, search
 │   ├── query_filters.py         # Deterministic country/remote extraction from question text
 │   └── db_utils.py              # seed_qdrant_db(), sync_qdrant_db(), CSV export
+├── evals/                       # Importable embedding/generation/sweep comparison harness
+├── evals_system/                # Local Streamlit eval review UI (see GUIDE.md)
+├── scripts/                     # Thin CLI wrappers over evals/
 ├── pyproject.toml
 ├── tests/
-│   ├── fixtures/              # Mock Hub API JSON payloads
+│   ├── fixtures/              # Mock Hub API JSON payloads + golden eval fixtures
+│   ├── evals_system/          # Unit tests for eval review helpers
 │   └── the_hub_client/        # Unit tests for API client parsing
 └── .env.example
 ```

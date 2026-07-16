@@ -67,11 +67,26 @@ See [CONTRIBUTING.md](CONTRIBUTING.md#code-quality) for Ruff, mypy, oxlint, pre-
 
 - **Cold start on first request:** the backend runs on Render's free tier, which spins down after 15 minutes of inactivity. The first `/chat` or `/jobs/*` request after a quiet period may take 30–60s to respond while the service wakes up. This is a known, accepted trade-off of the free-tier hosting (see [ADR-0013](docs/adr/0013-deployment-strategy.md)) — not fixed for the prototype stage.
 
+## Eval tooling (local)
+
+Manual retrieval/generation review and model/threshold comparison live under
+[`evals_system/`](evals_system/) (Streamlit UI) on top of the importable
+[`evals/`](evals/) harness. CLI wrappers: [`scripts/README.md`](scripts/README.md).
+
+```bash
+uv sync --group eval-ui
+uv run --group eval-ui streamlit run evals_system/app.py
+```
+
+Workflow guide (how to read `separation_margin`, judgments, sweeps, etc.):
+[`evals_system/GUIDE.md`](evals_system/GUIDE.md).
+
 ## Where to go next
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — code-quality tooling and dev checks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — environment variables, ingestion, local development, project layout, data model, Hub API client, and testing
 - [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — problem, roadmap, and trust bar for `/chat`
+- [evals_system/GUIDE.md](evals_system/GUIDE.md) — manual eval review UI walkthrough
 - [docs/adr/](docs/adr/) — architectural decision records
   - [ADR-0001](docs/adr/0001-llm-provider-strategy.md) — LLM provider strategy for the RAG generation layer
   - [ADR-0002](docs/adr/0002-retrieval-filtering-strategy.md) — retrieval filtering strategy
