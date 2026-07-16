@@ -85,7 +85,7 @@
 ## Alternatives considered and rejected (for now)
 
 - **Client-side fuzzy text-matching of job titles within the answer** — rejected: no reliable anchor between free-form model prose and a specific source without the model itself referencing an ID/URL; risks confidently linking the wrong job, worse than no link at all.
-- **Removing the sources block entirely, relying only on inline links** — rejected for now: inline-link coverage depends on imperfect model compliance (see Consequences); the sources list is the accepted safety net until link fidelity is actually measured in practice.
+- **Removing the sources block entirely, relying only on inline links** — rejected for now: inline-link coverage depends on imperfect model compliance (see Consequences); the sources list is the accepted safety net until link fidelity is actually measured in practice (— revisited for production only, see Implementation notes below).
 - **Structured output (model returns JSON spans + job_id, links rendered purely from confirmed IDs)** — more robust in principle, but real added complexity (schema per provider, structured-output parsing) for a benefit not yet shown necessary. A markdown-link instruction is the proportionate first attempt, consistent with ADR-0001's repeated "don't pay for capability the current evidence doesn't call for" reasoning.
 
 ## Implementation notes (post-acceptance)
