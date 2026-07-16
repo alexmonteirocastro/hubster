@@ -1,21 +1,22 @@
-# Hubster eval review UI (ALE-146)
+# Hubster eval review UI (`evals_system/`)
 
-Local Streamlit app for human-aided retrieval/generation review and wiring the
-[`evals/`](../evals/) comparison/sweep harness (ALE-147).
+Local Streamlit surface for human-aided retrieval/generation review and wiring the
+[`evals/`](../evals/) comparison/sweep harness (ALE-146 / ALE-147). Companion to
+the importable `evals/` package — not part of the FastAPI / React production stack.
 
-Not part of the FastAPI / React production stack.
+**Workflow guide (what to enter, how to read metrics):** [GUIDE.md](GUIDE.md)
 
 ## Run the app
 
 ```bash
 uv sync --group eval-ui
-uv run --group eval-ui streamlit run streamlit_app/app.py
+uv run --group eval-ui streamlit run evals_system/app.py
 ```
 
 Requires the same `.env` / Qdrant / LLM credentials used by the CLI scripts under
 `scripts/`.
 
-Judgments are stored in `streamlit_app/data/judgments.db` (gitignored).
+Judgments are stored in `evals_system/data/judgments.db` (gitignored).
 
 ## Tests
 
@@ -25,7 +26,7 @@ Streamlit:
 
 ```bash
 uv sync --group dev --group eval-ui
-uv run pytest tests/streamlit_app/
+uv run pytest tests/evals_system/
 ```
 
 ## Tabs
@@ -36,3 +37,5 @@ uv run pytest tests/streamlit_app/
 | Embeddings | Explicit Run → `compare_embedding_models` |
 | Generation | Explicit Run → `compare_generators` (surfaces `GenerationCaseResult.error`) |
 | Min-score sweep | Run retrieval once (seed + cache scores); threshold slider is in-memory only |
+
+See [GUIDE.md](GUIDE.md) for the per-tab walkthrough.

@@ -9,14 +9,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 from db import get_qdrant_client, get_settings, query_jobs_in_qdrant
 from evals.generation import format_context_for_generator
-from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
-from llm_client.context import filter_chat_retrieval_points, sanitize_answer_links
-from llm_client.exceptions import (
-    GenerationConfigurationError,
-    GenerationRateLimitError,
-    GenerationUnavailableError,
-)
-from streamlit_app.judgments import (
+from evals_system.judgments import (
     Judgment,
     Tag,
     ensure_db,
@@ -24,9 +17,16 @@ from streamlit_app.judgments import (
     insert_judgment,
     list_judgments,
 )
-from streamlit_app.review_collections import (
+from evals_system.review_collections import (
     REVIEW_COLLECTION_CANDIDATES,
     existing_review_collections,
+)
+from llm_client import NO_MATCHING_JOBS_MESSAGE, get_generator
+from llm_client.context import filter_chat_retrieval_points, sanitize_answer_links
+from llm_client.exceptions import (
+    GenerationConfigurationError,
+    GenerationRateLimitError,
+    GenerationUnavailableError,
 )
 from the_hub_client.models import CountryCode
 from the_hub_client.utils import build_job_url

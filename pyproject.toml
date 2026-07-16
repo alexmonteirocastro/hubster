@@ -48,7 +48,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 "api/main.py" = ["B008"]
 "scripts/*" = ["E402"]  # standalone entry points bootstrap sys.path before imports
-"streamlit_app/*" = ["E402"]  # same sys.path bootstrap as scripts/*
+"evals_system/*" = ["E402"]  # same sys.path bootstrap as scripts/*
 
 [tool.mypy]
 python_version = "3.12"

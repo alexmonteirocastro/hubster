@@ -3,7 +3,8 @@
 Developer-facing comparison tooling for embedding models, generation models, and
 `CHAT_SOURCE_MIN_SCORE` sweeps. Logic lives in the importable [`evals/`](../evals/)
 package (structured dataclass returns); scripts here are thin CLI wrappers so
-ALE-146 (Streamlit) can call the same functions without re-implementing sweeps.
+the [`evals_system/`](../evals_system/) Streamlit UI can call the same functions
+without re-implementing sweeps (see [`evals_system/GUIDE.md`](../evals_system/GUIDE.md)).
 
 These complement (but do not replace) the automated `@pytest.mark.retrieval` /
 `@pytest.mark.generation` tests.

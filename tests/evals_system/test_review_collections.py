@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from streamlit_app.review_collections import (
+from evals_system.review_collections import (
     REVIEW_COLLECTION_CANDIDATES,
     existing_review_collections,
 )
@@ -18,7 +18,7 @@ def test_existing_review_collections_filters_to_present(
     client = MagicMock()
     client.collection_exists.side_effect = lambda name: name == "JOBS_ON_THE_HUB"
     monkeypatch.setattr(
-        "streamlit_app.review_collections.get_qdrant_client",
+        "evals_system.review_collections.get_qdrant_client",
         lambda: client,
     )
 
@@ -32,7 +32,7 @@ def test_existing_review_collections_propagates_connection_error(
     client = MagicMock()
     client.collection_exists.side_effect = ConnectionError("qdrant down")
     monkeypatch.setattr(
-        "streamlit_app.review_collections.get_qdrant_client",
+        "evals_system.review_collections.get_qdrant_client",
         lambda: client,
     )
 
