@@ -7,6 +7,13 @@ For how to launch the app, see [README.md](README.md).
 examples (same corpus as `golden_jobs.json` / `golden_queries.json`). Use
 `JOBS_ON_THE_HUB` when you are deliberately probing production-scale failure modes.
 
+Screenshots below were captured against the golden fixture corpus (`JOBS_DEV`
+seeded from `golden_jobs.json`, plus disposable `JOBS_COMPARE_*` collections).
+Fixture company names (`Acme Corp`, `Copenhagen Digital`, …) are intentional —
+do not replace these with production screenshots.
+
+![Hubster eval review — Review tab form on JOBS_DEV](assets/01-overview-review-form.png)
+
 ## How the four tabs relate to pytest
 
 | Surface | Role |
@@ -45,6 +52,8 @@ but you do **not** need the FastAPI server running.
 
 ### Reading Sources / Answer
 
+![Review tab — Sources / Answer split after a JOBS_DEV query](assets/02-review-sources-answer.png)
+
 - **Sources** (left): hits that survived the min-score floor, with score and
   expandable `document_text`. Empty → "No sources above the min-score floor" and
   the answer is the standard no-match fallback (`generated=false`).
@@ -55,6 +64,11 @@ A **good** result: expected job(s) appear as top sources with scores comfortably
 above the floor; the answer cites only those jobs and does not invent roles.
 A **concerning** result: wrong role/company in the top sources, scores clustered
 near the floor, or an answer that names a job/URL not present in Sources.
+
+The screenshot above is a concerning Review hit on purpose: the golden query asks
+for a remote backend engineer in Copenhagen, but the top source is a
+**Frontend Developer** (`cph001`) — the same role-confusion pattern covered by
+`role_confusion_cases` in `golden_queries.json`.
 
 ### Judgments
 
@@ -70,6 +84,8 @@ threshold change.
 ## Embeddings
 
 Side-by-side embedding model comparison via `evals.compare_embedding_models`.
+
+![Embeddings tab — form before Run](assets/03-embeddings-form.png)
 
 ### What the run does
 
@@ -107,17 +123,20 @@ and any `all_missing` ids.
 
 ### Worked example (what a bad margin looks like)
 
-On a run that included `sentence-transformers/all-MiniLM-L6-v2`, a summary row
-like:
+![Embeddings results — MiniLM negative separation_margin vs E5 baseline](assets/04-embeddings-results.png)
+
+On a golden-set run that includes both `sentence-transformers/all-MiniLM-L6-v2`
+and production `intfloat/multilingual-e5-small`:
 
 | model | missed_count | min_expected_score | max_noise_score | separation_margin |
 |-------|--------------|--------------------|-----------------|-------------------|
-| `…/all-MiniLM-L6-v2` | 0 | 0.61 | 0.82 | **−0.21** |
+| `…/all-MiniLM-L6-v2` | 0 | ~0.40 | ~0.61 | **≈ −0.21** |
+| `intfloat/multilingual-e5-small` | 0 | ~0.83 | ~0.88 | ≈ −0.05 |
 
-…means every expected id still appeared in top-k (`missed_count=0`), but noise
-peaked **0.21 above** the weakest expected hit. Drill into the per-query expander:
-find the query where `top_noise_score` exceeds the expected score — that is the
-concrete failure mode (noise outranking a correct answer), not a miss.
+MiniLM’s `missed_count=0` looks fine until you read the margin: noise still peaks
+~0.21 above the weakest expected hit. Expand **Queries — …MiniLM…** and open
+`backend-copenhagen`: expected `abc123` scores ~0.40 while top noise is ~0.61 —
+noise outranking a correct answer, not a miss.
 
 Prefer reading margins relative to the production baseline in the **same** table,
 not absolute scores across unrelated runs.
@@ -128,6 +147,8 @@ not absolute scores across unrelated runs.
 
 Side-by-side generator comparison via `evals.compare_generators` on
 `golden_generation.json`.
+
+![Generation tab — provider controls](assets/05-generation-form.png)
 
 ### Controls
 
@@ -142,6 +163,8 @@ Explicit Run only (same caveat as Embeddings).
 
 ### Reading case results
 
+![Generation results — expanded case with missing expected source](assets/06-generation-results.png)
+
 Each expander is one golden case × one provider (`GenerationCaseResult`):
 
 - **`GenerationCaseResult.error`** — provider failure (config, rate limit, unreachable
@@ -154,6 +177,10 @@ Each expander is one golden case × one provider (`GenerationCaseResult`):
   **generation** problem.
 - **`ungrounded_urls` / `ungrounded_phrases`** — answer cites material not present
   in the retrieved sources (hallucination / poor grounding signal).
+
+In the screenshot, `[backend_copenhagen]` shows
+`Missing expected: ['abc123']` while other fixture ids filled top-k — flag that
+as retrieval before judging the stub answer text.
 
 ### Watch-for: same sources, different honesty
 
@@ -172,6 +199,8 @@ ticket); do not rely on a one-off production screenshot.
 Explore candidate `CHAT_SOURCE_MIN_SCORE` values without re-embedding on every
 slider move.
 
+![Min-score sweep — before Run retrieval](assets/07-sweep-form.png)
+
 ### Two-phase flow
 
 1. **Run retrieval** — seeds disposable `JOBS_COMPARE_MIN_SCORE_SWEEP` with the
@@ -184,6 +213,8 @@ Delete the disposable collection with the cleanup button when finished.
 
 ### Reading the grid
 
+![Min-score sweep — live slider + full threshold grid](assets/08-sweep-results.png)
+
 | Column | Meaning |
 |--------|---------|
 | `expected_survivors` / `expected_total` | How many expected golden hits still clear this threshold. |
@@ -193,12 +224,13 @@ Delete the disposable collection with the cleanup button when finished.
 **Suggested max safe threshold** = largest candidate where `missed_expected == 0`
 (no expected-hit loss). It does **not** guarantee confuser rejection.
 
-A clean read requires **both** columns: e.g. a threshold can be "safe" for
-expected hits while still letting confusers through. Prefer a threshold where
-expected survivors stay complete **and** confuser survivors drop as far as the
-score separation allows. If expected and confuser scores overlap, no single floor
-fixes ranking — that is an embedding/corpus problem (use the Embeddings tab), not
-a threshold tweak.
+A clean read requires **both** columns: e.g. at `0.85` the screenshot shows
+`Expected survivors: 5/7 (missed 2) · Confuser survivors: 1/2` — the floor is
+already dropping expected hits while a confuser still survives. Prefer a
+threshold where expected survivors stay complete **and** confuser survivors drop
+as far as the score separation allows. If expected and confuser scores overlap,
+no single floor fixes ranking — that is an embedding/corpus problem (use the
+Embeddings tab), not a threshold tweak.
 
 ---
 
@@ -213,3 +245,18 @@ a threshold tweak.
    misses from grounding/provider errors.
 5. Promote durable findings into `tests/fixtures/` and cover them with
    `pytest -m retrieval` / `generation`.
+
+## Regenerating screenshots
+
+With Qdrant reachable and `JOBS_DEV` seeded from golden fixtures:
+
+```bash
+# Terminal A
+LLM_PROVIDER=stub uv run --group eval-ui streamlit run evals_system/app.py \
+  --server.port 8502 --server.headless true
+
+# Terminal B
+uv run --with playwright python evals_system/assets/_capture_screenshots.py
+```
+
+Keep production collections out of these shots — the guide should stay fixture-stable.

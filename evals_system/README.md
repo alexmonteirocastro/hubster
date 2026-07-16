@@ -5,6 +5,7 @@ Local Streamlit surface for human-aided retrieval/generation review and wiring t
 the importable `evals/` package — not part of the FastAPI / React production stack.
 
 **Workflow guide (what to enter, how to read metrics):** [GUIDE.md](GUIDE.md)
+(includes screenshots against the golden fixture corpus).
 
 ## Run the app
 
