@@ -1,9 +1,9 @@
 # ALE-151 Findings: Role-Confusion Regression — "frontend jobs in Copenhagen"
 
 * **Ticket:** ALE-151
-* **Related:** ALE-138 (manual review flagged frontend↔backend confusion), ALE-92 / ADR-0010 (keyword-precision gap — distinct failure mode), ALE-143 (hybrid-search fix candidate)
-* **Date:** 2026-07-14 (production observation); fixture codified 2026-07-15
-* **Status:** Regression case added; awaiting ALE-143 verification
+* **Related:** ALE-138 (manual review flagged frontend↔backend confusion), ALE-92 / ADR-0010 (keyword-precision gap — distinct failure mode), ALE-143 (hybrid-search verification)
+* **Date:** 2026-07-14 (production observation); fixture codified 2026-07-15; ALE-143 re-check 2026-07-16
+* **Status:** Still failing after ADR-0010 hybrid search — follow-up required
 
 ## Summary
 
@@ -22,7 +22,7 @@ Codified in `tests/fixtures/golden_queries.json` under `role_confusion_cases`:
 | Confusers | `cph002` — Sales Development Representative; `cph003` — Business Development Consultant (both Copenhagen) |
 | Score floor | `0.85` (production `CHAT_SOURCE_MIN_SCORE`) |
 
-Test: `test_role_confusion_cases` in `tests/db/test_retrieval.py` (marked `xfail` until ALE-143 ships and is re-evaluated).
+Test: `test_role_confusion_cases` in `tests/db/test_retrieval.py` (remains `xfail(strict=True)` after ALE-143).
 
 Observed fixture scores (E5, dense-only, 2026-07-15):
 
@@ -34,7 +34,7 @@ Observed fixture scores (E5, dense-only, 2026-07-15):
 | 4 | pqr678 | Backend Developer (Oslo) | 0.839 |
 | 5 | cph003 | Business Development Consultant | 0.839 |
 
-Failure mode under current retrieval: confuser `cph002` survives `CHAT_SOURCE_MIN_SCORE` (0.85) and would appear in `/chat` sources despite being role-irrelevant — matching the production observation (confusers at 0.855–0.860 above floor).
+Failure mode under dense-only retrieval: confuser `cph002` survives `CHAT_SOURCE_MIN_SCORE` (0.85) and would appear in `/chat` sources despite being role-irrelevant — matching the production observation (confusers at 0.855–0.860 above floor).
 
 Assertions:
 
@@ -42,23 +42,18 @@ Assertions:
 2. Expected job score ≥ `CHAT_SOURCE_MIN_SCORE`.
 3. Each confuser ranks below the expected job and scores below the floor.
 
-## ALE-143 verification plan
+## ALE-143 verification result (2026-07-16)
 
-ADR-0010 hybrid search targets **keyword/tech-stack precision** (Python/FastAPI, Go, Terraform), not role/topic confusion. Do not assume ALE-143 fixes this case automatically.
+Re-ran `test_role_confusion_cases` against fused dense+BM25 RRF retrieval (ADR-0010 / ALE-143) with dense cosine attached for the floor (Decision 7).
 
-After ALE-143 merges:
+**Still fails.** Confuser `cph002` still scores ≈ **0.852** on the companion dense leg — above `CHAT_SOURCE_MIN_SCORE=0.85`. Hybrid search improves keyword/tech-stack ranking (`test_tech_stack_adversarial_cases` now passes) but does not suppress role-confused dense neighbors that share location and generic job-market language.
 
-1. Re-run `uv run pytest -v -m retrieval tests/db/test_retrieval.py::test_role_confusion_cases` **without** the `xfail` marker.
-2. Document pass or fail in this file and in ADR-0010 revisit triggers.
+This confirms the pre-ALE-143 expectation: role/topic confusion is a **dense-embedding semantic proximity** problem, not the keyword-density gap ADR-0010 targeted.
 
-## If still failing post-hybrid-search
-
-Role confusion is likely a **dense-embedding semantic proximity** problem (shared "Copenhagen startup job" context) rather than missing keyword overlap. Hybrid BM25 may not disambiguate "frontend" from "sales/BD" when confusers share location and generic job-market language.
-
-Likely fix directions (not scoped here — for a future ADR/ticket if ALE-143 does not pass):
+## Follow-up directions (not solved by ALE-143)
 
 - **Role-aware payload filtering** — filter or boost by `job_role` / title when the query encodes an explicit role (extends ADR-0002's categorical-signal approach).
 - **Query intent parsing** — extract role + location facets before retrieval and apply structured filters.
 - **Re-ranking with role classifier** — lightweight title/role match pass after dense retrieval.
 
-Until verified, tracked as an ADR-0010 revisit trigger (see `docs/adr/0010-sparse-bm25-hybrid-search.md`).
+Tracked as an ADR-0010 revisit trigger; requires a dedicated follow-up ticket/ADR.

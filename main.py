@@ -2,6 +2,7 @@ import argparse
 
 from db import (
     backfill_job_title_company_metadata,
+    backfill_sparse_bm25_vectors,
     create_collection,
     drop_db,
     get_qdrant_client,
@@ -45,6 +46,23 @@ def main(mode: str = "sync", *, reset: bool = False) -> None:
         )
         backfill_job_title_company_metadata(client, settings.qdrant_dev_collection_name)
         return
+    elif mode == "backfill-sparse":
+        print(
+            f"Backfilling BM25 sparse vectors on '{settings.qdrant_collection_name}'..."
+        )
+        backfill_sparse_bm25_vectors(client, settings.qdrant_collection_name)
+        return
+    elif mode == "backfill-sparse-dev":
+        if settings.qdrant_dev_collection_name == settings.qdrant_collection_name:
+            raise ValueError(
+                "QDRANT_DEV_COLLECTION_NAME must differ from QDRANT_COLLECTION_NAME."
+            )
+        print(
+            "Backfilling BM25 sparse vectors on "
+            f"'{settings.qdrant_dev_collection_name}'..."
+        )
+        backfill_sparse_bm25_vectors(client, settings.qdrant_dev_collection_name)
+        return
     else:
         collection_name = settings.qdrant_collection_name
 
@@ -64,7 +82,8 @@ def main(mode: str = "sync", *, reset: bool = False) -> None:
         else:
             raise ValueError(
                 f"Unknown mode: {mode}. Use 'sync', 'seed', 'seed-dev', "
-                "'backfill', or 'backfill-dev'."
+                "'backfill', 'backfill-dev', 'backfill-sparse', or "
+                "'backfill-sparse-dev'."
             )
 
     print("\n--- Testing Search ---")
@@ -113,6 +132,19 @@ def _run_main() -> None:
         action="store_true",
         help="Same as --backfill, but targets QDRANT_DEV_COLLECTION_NAME.",
     )
+    parser.add_argument(
+        "--backfill-sparse",
+        action="store_true",
+        help=(
+            "One-time migration: add BM25 sparse vectors to already-indexed "
+            "points (ADR-0010 / ALE-143). Dense vectors are left untouched."
+        ),
+    )
+    parser.add_argument(
+        "--backfill-sparse-dev",
+        action="store_true",
+        help="Same as --backfill-sparse, but targets QDRANT_DEV_COLLECTION_NAME.",
+    )
     args = parser.parse_args()
 
     selected_modes = [
@@ -122,12 +154,15 @@ def _run_main() -> None:
             ("seed-dev", args.seed_dev),
             ("backfill", args.backfill),
             ("backfill-dev", args.backfill_dev),
+            ("backfill-sparse", args.backfill_sparse),
+            ("backfill-sparse-dev", args.backfill_sparse_dev),
         )
         if enabled
     ]
     if len(selected_modes) > 1:
         parser.error(
-            "Use only one of --seed, --seed-dev, --backfill, or --backfill-dev."
+            "Use only one of --seed, --seed-dev, --backfill, --backfill-dev, "
+            "--backfill-sparse, or --backfill-sparse-dev."
         )
     if args.reset and not args.seed:
         parser.error("--reset requires --seed.")
@@ -140,6 +175,10 @@ def _run_main() -> None:
         mode = "backfill-dev"
     elif args.backfill:
         mode = "backfill"
+    elif args.backfill_sparse_dev:
+        mode = "backfill-sparse-dev"
+    elif args.backfill_sparse:
+        mode = "backfill-sparse"
     else:
         mode = "sync"
 

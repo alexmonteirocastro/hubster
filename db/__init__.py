@@ -1,5 +1,6 @@
 from db.backfill import (
     backfill_job_title_company_metadata,
+    backfill_sparse_bm25_vectors,
     extract_title_company_from_document_text,
 )
 from db.database import (
@@ -7,6 +8,7 @@ from db.database import (
     create_collection,
     delete_jobs_from_qdrant,
     drop_db,
+    ensure_sparse_bm25_vector,
     get_indexed_job_ids,
     load_jobs_into_qdrant,
     query_jobs_in_qdrant,
@@ -22,7 +24,9 @@ from db.settings import get_qdrant_client, get_settings
 
 __all__ = [
     "backfill_job_title_company_metadata",
+    "backfill_sparse_bm25_vectors",
     "extract_title_company_from_document_text",
+    "ensure_sparse_bm25_vector",
     "load_jobs_data_into_csv",
     "load_jobs_into_qdrant",
     "delete_jobs_from_qdrant",

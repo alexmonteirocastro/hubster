@@ -52,7 +52,7 @@
       "query": "Python backend developer FastAPI",
       "expected_job_ids": ["ts001"],
       "confuser_job_ids": ["ts002"],
-      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 1: Python-core role (Courseware Labs) must outrank PHP/Node role that only lists Python once (Mobile Studio)."
+      "notes": "ALE-145 / ADR-0010 Decision 5 / findings 0001 Case 1: Python+FastAPI-core role (Courseware Labs) must outrank PHP/Node role that only lists Python once (Mobile Studio)."
     },
     {
       "id": "go-backend",

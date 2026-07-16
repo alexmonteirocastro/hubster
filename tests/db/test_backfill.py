@@ -7,9 +7,11 @@ from qdrant_client import models
 
 from db.backfill import (
     backfill_job_title_company_metadata,
+    backfill_sparse_bm25_vectors,
     extract_title_company_from_document_text,
 )
 from db.db_utils import INGEST_BATCH_SIZE
+from db.settings import BM25_SPARSE_MODEL, BM25_SPARSE_VECTOR_NAME
 from the_hub_client.models import JobOpportunity
 
 _WELL_FORMED_DOCUMENT_TEXT = (
@@ -179,3 +181,52 @@ def test_backfill_batches_writes_at_ingest_batch_size(mock_scrape):
         isinstance(operation, models.SetPayloadOperation)
         for operation in first_batch + second_batch
     )
+
+
+def _sparse_point(point_id: str, *, document_text: str | None, has_sparse: bool):
+    vector = {BM25_SPARSE_VECTOR_NAME: object()} if has_sparse else {}
+    return SimpleNamespace(
+        id=point_id,
+        payload={"document_text": document_text, "job_url_identifier": point_id},
+        vector=vector,
+    )
+
+
+def test_backfill_sparse_updates_points_missing_bm25():
+    db_client = MagicMock()
+    db_client.scroll.return_value = (
+        [
+            _sparse_point(
+                "p1", document_text=_WELL_FORMED_DOCUMENT_TEXT, has_sparse=False
+            ),
+            _sparse_point(
+                "p2", document_text=_WELL_FORMED_DOCUMENT_TEXT, has_sparse=True
+            ),
+        ],
+        None,
+    )
+
+    with patch("db.database.ensure_sparse_bm25_vector", return_value=True):
+        updated, skipped = backfill_sparse_bm25_vectors(db_client, "JOBS_DEV")
+
+    assert (updated, skipped) == (1, 1)
+    db_client.update_vectors.assert_called_once()
+    points = db_client.update_vectors.call_args.kwargs["points"]
+    assert len(points) == 1
+    assert points[0].id == "p1"
+    assert BM25_SPARSE_VECTOR_NAME in points[0].vector
+    assert points[0].vector[BM25_SPARSE_VECTOR_NAME].model == BM25_SPARSE_MODEL
+
+
+def test_backfill_sparse_skips_points_without_document_text():
+    db_client = MagicMock()
+    db_client.scroll.return_value = (
+        [_sparse_point("p1", document_text=None, has_sparse=False)],
+        None,
+    )
+
+    with patch("db.database.ensure_sparse_bm25_vector", return_value=False):
+        updated, skipped = backfill_sparse_bm25_vectors(db_client, "JOBS_DEV")
+
+    assert (updated, skipped) == (0, 1)
+    db_client.update_vectors.assert_not_called()

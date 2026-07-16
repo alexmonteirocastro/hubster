@@ -15,6 +15,13 @@ DEFAULT_CHAT_RATE_LIMIT = "10/minute"
 # 0.85 sits between rank-5 median (0.853) and mean (0.852).
 DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.85
 
+# ADR-0010: sparse BM25 via Qdrant Cloud Inference (not in-process FastEmbed).
+BM25_SPARSE_VECTOR_NAME = "bm25"
+BM25_SPARSE_MODEL = "qdrant/bm25"
+# Attached when an RRF hit has no companion dense score (BM25-only). Fails any
+# CHAT_SOURCE_MIN_SCORE floor — see ADR-0010 Decision 7.
+MISSING_DENSE_SCORE = -1.0
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
