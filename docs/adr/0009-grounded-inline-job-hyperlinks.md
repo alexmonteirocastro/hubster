@@ -2,7 +2,7 @@
 
 * **Status:** Accepted
 * **Date:** 2026-07-09
-* **Related:** ALE-105 (implementation), ALE-104 (markdown rendering — direct dependency), ADR-0001 Decision 2b/3/5 (`Generator` interface, anti-hallucination guardrail, generation-quality eval set), ADR-0004 Decision 4 (sources rendering), ADR-0005 (visual tokens), ADR-0007 (`LLM_PROVIDER=stub` for local UI testing)
+* **Related:** ALE-105 (implementation), ALE-104 (markdown rendering — direct dependency), ALE-155 (production hide of `SourceList` — Decision 5 revisit), ADR-0001 Decision 2b/3/5 (`Generator` interface, anti-hallucination guardrail, generation-quality eval set), ADR-0004 Decision 4 (sources rendering), ADR-0005 (visual tokens), ADR-0007 (`LLM_PROVIDER=stub` for local UI testing)
 
 ## Context
 
@@ -87,3 +87,17 @@
 - **Client-side fuzzy text-matching of job titles within the answer** — rejected: no reliable anchor between free-form model prose and a specific source without the model itself referencing an ID/URL; risks confidently linking the wrong job, worse than no link at all.
 - **Removing the sources block entirely, relying only on inline links** — rejected for now: inline-link coverage depends on imperfect model compliance (see Consequences); the sources list is the accepted safety net until link fidelity is actually measured in practice.
 - **Structured output (model returns JSON spans + job_id, links rendered purely from confirmed IDs)** — more robust in principle, but real added complexity (schema per provider, structured-output parsing) for a benefit not yet shown necessary. A markdown-link instruction is the proportionate first attempt, consistent with ADR-0001's repeated "don't pay for capability the current evidence doesn't call for" reasoning.
+
+## Implementation notes (post-acceptance)
+
+### Decision 5 revisit — production hide via `VITE_SHOW_SOURCES` (ALE-155)
+
+This is the Decision 5 revisit trigger firing ("if user feedback shows the retained sources strip is redundant…"), not a fresh unrelated decision. Recorded here rather than rewriting Decision 5, to preserve the decision-history thread.
+
+**What changed:** Production builds (`frontend/.env.production`) set `VITE_SHOW_SOURCES=false`, so `ChatMessage` skips rendering `SourceList` entirely. Local `npm run dev` and Docker Compose keep the default (`true` / Compose build-arg override) so the compact strip remains the local debugging safety net. Compact vs. debug styling (`VITE_SHOW_DEBUG_SOURCES`) is unchanged and only relevant when sources are shown.
+
+**Why not `import.meta.env.PROD`:** Same reasoning Decision 5 already established for `VITE_SHOW_DEBUG_SOURCES` — local Compose builds a production Vite bundle even when testing Ollama; ambient build-mode inference would be wrong there. The hide/show gate is an explicit env var for the same reason.
+
+**Accepted risk (new):** Production users who hit an under-linked or mislinked answer now have **no fallback sources list** — Decision 5's original rationale for keeping the strip as a permanent normal-UX safety net no longer applies in production. Backend `ChatResponse.sources` is unchanged; this is a frontend rendering choice only. Local/dev still shows the strip.
+
+**New revisit trigger:** If inline link-fidelity issues surface in production without a way to cross-reference retrieved jobs, reconsider re-enabling the compact strip by default in production (or a softer middle ground) rather than relying on model compliance alone.

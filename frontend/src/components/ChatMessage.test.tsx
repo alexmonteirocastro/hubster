@@ -125,6 +125,26 @@ describe("ChatMessage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders SourceList when VITE_SHOW_SOURCES is true", () => {
+    vi.stubEnv("VITE_SHOW_SOURCES", "true");
+
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-sources-true",
+          role: "assistant",
+          content: "Here are some roles.",
+          sources: sampleSources,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/^sources$/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /senior backend developer/i }),
+    ).toBeInTheDocument();
+  });
+
   it("hides SourceList when VITE_SHOW_SOURCES is false", () => {
     vi.stubEnv("VITE_SHOW_SOURCES", "false");
 

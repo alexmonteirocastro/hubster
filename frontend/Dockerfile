@@ -20,6 +20,7 @@ ENV VITE_CHAT_REQUEST_TIMEOUT_MS=$VITE_CHAT_REQUEST_TIMEOUT_MS
 ARG VITE_SHOW_SOURCES=false
 ENV VITE_SHOW_SOURCES=$VITE_SHOW_SOURCES
 
+# Keep in sync with frontend/.env.production VITE_LOADING_MESSAGE.
 ARG VITE_LOADING_MESSAGE="Searching and thinking — this can take a few moments, thanks for your patience."
 ENV VITE_LOADING_MESSAGE=$VITE_LOADING_MESSAGE
 

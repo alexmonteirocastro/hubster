@@ -182,8 +182,8 @@ npm run dev
 |----------|-------------|--------------------|--------------------------------|
 | `VITE_API_BASE_URL` | Browser-reachable API base (same-origin `/api` proxy) | `/api` | *(Compose build arg / Cloudflare)* |
 | `VITE_CHAT_REQUEST_TIMEOUT_MS` | Browser `/chat` AbortController timeout | `600000` (local/Ollama) | `90000` |
-| `VITE_SHOW_SOURCES` | Render `SourceList` under assistant replies | `true` | `false` |
-| `VITE_SHOW_DEBUG_SOURCES` | Full-size scored source cards instead of compact chips (only when sources are shown) | `false` | *(unset — compact)* |
+| `VITE_SHOW_SOURCES` | Render `SourceList` under assistant replies ([ADR-0009](adr/0009-grounded-inline-job-hyperlinks.md) Decision 5 revisit / ALE-155) | `true` | `false` |
+| `VITE_SHOW_DEBUG_SOURCES` | Full-size scored source cards instead of compact chips (only when sources are shown; [ADR-0009](adr/0009-grounded-inline-job-hyperlinks.md) Decision 5) | `false` | *(unset — compact)* |
 | `VITE_LOADING_MESSAGE` | Copy shown by `LoadingIndicator` while `/chat` is in flight | Local Ollama-aware message | Production-appropriate short wait copy |
 
 Do **not** gate `VITE_SHOW_SOURCES` or `VITE_LOADING_MESSAGE` on `import.meta.env.PROD` / `DEV` — local `docker compose up` builds a production Vite bundle even when testing Ollama (same reasoning as `VITE_SHOW_DEBUG_SOURCES` / [ADR-0009](adr/0009-grounded-inline-job-hyperlinks.md) Decision 5). Compose keeps local defaults via `docker-compose.override.yml` build args.
