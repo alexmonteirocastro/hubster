@@ -7,6 +7,7 @@ import { Chat } from "./Chat";
 
 vi.mock("../api/client", () => ({
   postChat: vi.fn(),
+  CHAT_QUESTION_MAX_LENGTH: 500,
   ApiNetworkError: class ApiNetworkError extends Error {
     constructor(message = "Unable to reach the API. Check your connection and try again.") {
       super(message);
