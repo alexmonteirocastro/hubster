@@ -24,8 +24,20 @@ interface ChatMessageProps {
   message: DisplayMessage;
 }
 
+/**
+ * Explicit env gate — do not use import.meta.env.PROD / DEV
+ * (same reasoning as ADR-0009 Decision 5's VITE_SHOW_DEBUG_SOURCES;
+ * see ADR-0009 implementation note for this flag's own rationale / ALE-155).
+ * Default true when unset.
+ */
+function isShowSourcesEnabled(): boolean {
+  return import.meta.env.VITE_SHOW_SOURCES !== "false";
+}
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const sources = !isUser ? message.sources : undefined;
+  const showSources = isShowSourcesEnabled() && Boolean(sources?.length);
 
   return (
     <article
@@ -47,9 +59,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {!isUser && message.generated === false && !message.isError && (
         <p className={styles.badge}>No matching jobs — answer from search, not generated</p>
       )}
-      {!isUser && message.sources && message.sources.length > 0 && (
-        <SourceList sources={message.sources} />
-      )}
+      {showSources && sources && <SourceList sources={sources} />}
     </article>
   );
 }

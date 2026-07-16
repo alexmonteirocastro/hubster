@@ -1,10 +1,26 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ChatSource } from "../api/types";
 import { ChatMessage } from "./ChatMessage";
+
+const sampleSources: ChatSource[] = [
+  {
+    score: 0.91,
+    job_id: "job-1",
+    job_url: "https://thehub.io/jobs/job-1",
+    job_role: "Backend Developer",
+    job_title: "Senior Backend Developer",
+    company: "Acme",
+    country: "Denmark",
+    location: "Copenhagen",
+    document_text: "Job details…",
+  },
+];
 
 describe("ChatMessage", () => {
   afterEach(() => {
     cleanup();
+    vi.unstubAllEnvs();
   });
 
   it("renders user content as plain text", () => {
@@ -89,5 +105,63 @@ describe("ChatMessage", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("Senior Backend Developer")).toBeInTheDocument();
     expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
+  });
+
+  it("renders SourceList when sources are present and VITE_SHOW_SOURCES is unset", () => {
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-sources",
+          role: "assistant",
+          content: "Here are some roles.",
+          sources: sampleSources,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/^sources$/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /senior backend developer/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders SourceList when VITE_SHOW_SOURCES is true", () => {
+    vi.stubEnv("VITE_SHOW_SOURCES", "true");
+
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-sources-true",
+          role: "assistant",
+          content: "Here are some roles.",
+          sources: sampleSources,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/^sources$/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /senior backend developer/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides SourceList when VITE_SHOW_SOURCES is false", () => {
+    vi.stubEnv("VITE_SHOW_SOURCES", "false");
+
+    render(
+      <ChatMessage
+        message={{
+          id: "assistant-no-sources",
+          role: "assistant",
+          content: "Here are some roles.",
+          sources: sampleSources,
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(/^sources$/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /senior backend developer/i }),
+    ).not.toBeInTheDocument();
   });
 });
