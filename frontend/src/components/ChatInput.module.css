@@ -8,8 +8,16 @@
   box-shadow: var(--shadow-card);
 }
 
-.input {
+.field {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
   resize: vertical;
   min-height: 2.75rem;
   max-height: 8rem;
@@ -18,6 +26,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface-alt);
   color: var(--color-ink);
+  box-sizing: border-box;
 }
 
 .input:focus {
@@ -28,6 +37,20 @@
 
 .input:disabled {
   opacity: 0.6;
+}
+
+.counter {
+  margin: 0;
+  align-self: flex-end;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-body);
+}
+
+.counterNearLimit {
+  color: var(--color-error);
+  font-weight: var(--font-weight-medium);
 }
 
 .button {

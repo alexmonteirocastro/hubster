@@ -2,7 +2,7 @@
 
 * **Status:** Accepted
 * **Date:** 2026-07-09
-* **Related:** ALE-87 (implementation), ALE-74 (public-facing consumer), ALE-76 (generation layer), ADR-0001 (Gemini rate-limit risk)
+* **Related:** ALE-87 (implementation), ALE-74 (public-facing consumer), ALE-76 (generation layer), ADR-0001 (Gemini rate-limit risk), ALE-156 (client-side length mirror)
 
 ## Context
 
@@ -55,4 +55,14 @@ ALE-87 closes both gaps on `POST /chat` only — the endpoint with external gene
 | Deploy with **multiple uvicorn workers** or **N container replicas** | Each process holds its own in-memory bucket — effective limit becomes `N × CHAT_RATE_LIMIT`. Move to Redis-backed storage via slowapi's `storage_uri`. |
 | Deploy **behind a reverse proxy / load balancer** without `X-Forwarded-For` handling | `get_remote_address` sees the proxy IP; all users share one bucket. Switch key function to read the real client IP from trusted forwarded headers. |
 | Leave prototype stage with **real concurrent users** | Revisit per-user auth/quotas and a distributed limiter; in-memory per-IP limiting is not a tenancy model. |
-| Evidence that **500 characters** is too tight or too loose for real questions | Tune `CHAT_QUESTION_MAX_LENGTH`; no schema migration required. |
+| Evidence that **500 characters** is too tight or too loose for real questions | Tune `CHAT_QUESTION_MAX_LENGTH` **and** the matching frontend `VITE_CHAT_QUESTION_MAX_LENGTH` (ALE-156); no schema migration required. The two are configured independently — see Implementation notes below. |
+
+## Implementation notes (post-acceptance)
+
+### Client-side length mirror via `VITE_CHAT_QUESTION_MAX_LENGTH` (ALE-156)
+
+Decision 1's backend enforcement is unchanged. ALE-156 adds a frontend UX mirror so the chat textarea hard-caps typing (`maxLength`) and shows a live `{used}/{max}` counter before a wasted 422 round trip.
+
+**Accepted risk (new):** Frontend `VITE_CHAT_QUESTION_MAX_LENGTH` (default 500) and backend `CHAT_QUESTION_MAX_LENGTH` are configured independently with **no shared source of truth**. Tuning one without the other causes client/server disagreement — the UI may hard-stop typing at a different length than the API's 422 `string_too_long` check. Documented in `frontend/.env.example` and `docs/ARCHITECTURE.md`; automatic sync across the stack is a future nice-to-have, not solved here.
+
+**Accepted risk (new):** Length is counted differently across the stack — JavaScript `String.length` / HTML `maxLength` count UTF-16 code units; Python `len()` counts Unicode code points. Supplementary-plane characters (emoji, some CJK extension blocks) can therefore hit the client cap while still being under the server limit (or, more rarely, the reverse). Job-search queries are overwhelmingly plain ASCII/Latin text, so this is low-probability today; named here rather than assumed equivalent.

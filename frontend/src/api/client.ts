@@ -21,6 +21,27 @@ function parseChatRequestTimeoutMs(): number {
 /** Browser-side /chat fetch timeout; should be ≥ the proxy timeout in each environment. */
 export const CHAT_REQUEST_TIMEOUT_MS = parseChatRequestTimeoutMs();
 
+/**
+ * Default matches backend `DEFAULT_CHAT_QUESTION_MAX_LENGTH` (db/settings.py).
+ * Keep `VITE_CHAT_QUESTION_MAX_LENGTH` in sync with `CHAT_QUESTION_MAX_LENGTH` if either is tuned.
+ */
+export const DEFAULT_CHAT_QUESTION_MAX_LENGTH = 500;
+
+function parseChatQuestionMaxLength(): number {
+  const raw = import.meta.env.VITE_CHAT_QUESTION_MAX_LENGTH;
+  if (raw === undefined || raw === "") {
+    return DEFAULT_CHAT_QUESTION_MAX_LENGTH;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+    return DEFAULT_CHAT_QUESTION_MAX_LENGTH;
+  }
+  return parsed;
+}
+
+/** Client-side textarea max length; mirrors backend `CHAT_QUESTION_MAX_LENGTH`. */
+export const CHAT_QUESTION_MAX_LENGTH = parseChatQuestionMaxLength();
+
 export class ApiNetworkError extends Error {
   constructor(message = "Unable to reach the API. Check your connection and try again.") {
     super(message);
