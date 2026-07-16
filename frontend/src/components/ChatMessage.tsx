@@ -24,8 +24,17 @@ interface ChatMessageProps {
   message: DisplayMessage;
 }
 
+/** Explicit env gate — do not use import.meta.env.PROD (ADR-0009 Decision 5). Default true when unset. */
+function isShowSourcesEnabled(): boolean {
+  return import.meta.env.VITE_SHOW_SOURCES !== "false";
+}
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const showSources =
+    !isUser &&
+    isShowSourcesEnabled() &&
+    Boolean(message.sources && message.sources.length > 0);
 
   return (
     <article
@@ -47,9 +56,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {!isUser && message.generated === false && !message.isError && (
         <p className={styles.badge}>No matching jobs — answer from search, not generated</p>
       )}
-      {!isUser && message.sources && message.sources.length > 0 && (
-        <SourceList sources={message.sources} />
-      )}
+      {showSources && message.sources && <SourceList sources={message.sources} />}
     </article>
   );
 }

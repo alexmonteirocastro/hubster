@@ -35,5 +35,9 @@ services:
       args:
         # Keep client timeout aligned with nginx.dev.conf (600s) for local Ollama.
         VITE_CHAT_REQUEST_TIMEOUT_MS: "600000"
+        # Keep SourceList + Ollama-aware loading copy for local Compose (production
+        # Vite mode would otherwise bake in .env.production / Dockerfile defaults).
+        VITE_SHOW_SOURCES: "true"
+        VITE_LOADING_MESSAGE: "Searching jobs and generating an answer… Local models may take a few minutes."
     volumes:
       - ./frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
