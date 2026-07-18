@@ -3,6 +3,12 @@ name: Test
 on:
   pull_request:
     branches: [main]
+    # Docs-only PRs skip the shared ci.yml suite. Link checks for those PRs
+    # run via markdown-links.yml. Mixed docs+code PRs still trigger this
+    # workflow. deploy.yml has no path filter — main always runs full CI.
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
 
 permissions:
   contents: read
