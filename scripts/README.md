@@ -242,3 +242,34 @@ Evaluated against 1,015 real jobs under `intfloat/multilingual-e5-small`:
 **Provisional `CHAT_SOURCE_MIN_SCORE` for E5-small: `0.85`** (tunable 0.84–0.87). The current BGE default (`0.70` in `db/settings.py`) does not transfer. Top-1 and rank-5 scores overlap (margin ≈ −0.036), so any hard cutoff is lossy — validate after re-seed with `pytest -m retrieval`.
 
 **Spike recommendation:** standardize on `intfloat/multilingual-e5-small` via Cloud Inference over MiniLM. Full findings on Linear ticket ALE-138.
+
+## 6. E5 document_text token lengths (ALE-140)
+
+Read-only scroll of production `document_text`; reports percentile token stats
+against the E5 512-token window (`passage: ` + stored text).
+
+```bash
+uv run python scripts/check_e5_document_token_lengths.py
+uv run python scripts/check_e5_document_token_lengths.py --print-linear-comment
+```
+
+Useful flags: `--limit N` (smoke), `--print-linear-comment`.
+
+## 7. E5 truncation vs retrieval-precision correlation (ALE-141)
+
+Read-only analysis: for ALE-92 / ALE-138 failure jobs, locate distinguishing
+tech-stack / role keywords relative to the 512-token dense cutoff; broader
+sample of where stack/role signal sits; geo misses as a control (Country is
+payload-only).
+
+```bash
+uv run python scripts/analyze_e5_truncation_signal_positions.py
+uv run python scripts/analyze_e5_truncation_signal_positions.py --limit 200
+uv run python scripts/analyze_e5_truncation_signal_positions.py \
+    --print-linear-comment
+```
+
+Useful flags: `--sample-size N` (broader sample, default 150), `--seed`,
+`--print-linear-comment`.
+
+Findings: [`docs/findings/0003-e5-truncation-retrieval-correlation-findings.md`](../docs/findings/0003-e5-truncation-retrieval-correlation-findings.md).
