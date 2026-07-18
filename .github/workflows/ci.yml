@@ -2,6 +2,15 @@ name: CI
 
 on:
   workflow_call:
+    inputs:
+      skip_heavy_tests:
+        description: >-
+          When true (docs-only PRs), unit/frontend/retrieval jobs no-op with
+          a success status so branch-protection required checks still pass.
+          deploy.yml omits this input — main always runs the full suite.
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -14,26 +23,36 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
+      - name: Skipping checks (docs-only PR)
+        if: inputs.skip_heavy_tests
+        run: echo "Skipping checks (docs-only PR)"
+
       - uses: actions/checkout@v4
+        if: ${{ !inputs.skip_heavy_tests }}
 
       - uses: astral-sh/setup-uv@v5
+        if: ${{ !inputs.skip_heavy_tests }}
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
           python-version: "3.12"
 
       - name: Install dependencies
+        if: ${{ !inputs.skip_heavy_tests }}
         run: uv sync --frozen --group dev
 
       - name: Run backend lint
+        if: ${{ !inputs.skip_heavy_tests }}
         run: |
           uv run ruff check .
           uv run ruff format --check .
 
       - name: Run backend type check
+        if: ${{ !inputs.skip_heavy_tests }}
         run: uv run mypy .
 
       - name: Run unit tests
+        if: ${{ !inputs.skip_heavy_tests }}
         env:
           QDRANT_URL: http://localhost:6333
           QDRANT_COLLECTION_NAME: JOBS_ON_THE_HUB
@@ -51,18 +70,26 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-retrieval
       cancel-in-progress: true
     steps:
+      - name: Skipping checks (docs-only PR)
+        if: inputs.skip_heavy_tests
+        run: echo "Skipping checks (docs-only PR)"
+
       - uses: actions/checkout@v4
+        if: ${{ !inputs.skip_heavy_tests }}
 
       - uses: astral-sh/setup-uv@v5
+        if: ${{ !inputs.skip_heavy_tests }}
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
           python-version: "3.12"
 
       - name: Install dependencies
+        if: ${{ !inputs.skip_heavy_tests }}
         run: uv sync --frozen --group dev
 
       - name: Run retrieval and generation eval tests
+        if: ${{ !inputs.skip_heavy_tests }}
         env:
           QDRANT_URL: ${{ secrets.QDRANT_URL }}
           QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
@@ -78,25 +105,34 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-frontend
       cancel-in-progress: true
-    defaults:
-      run:
-        working-directory: frontend
     steps:
+      - name: Skipping checks (docs-only PR)
+        if: inputs.skip_heavy_tests
+        run: echo "Skipping checks (docs-only PR)"
+
       - uses: actions/checkout@v4
+        if: ${{ !inputs.skip_heavy_tests }}
 
       - uses: actions/setup-node@v4
+        if: ${{ !inputs.skip_heavy_tests }}
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        if: ${{ !inputs.skip_heavy_tests }}
+        working-directory: frontend
         run: npm ci
 
       - name: Run frontend tests
+        if: ${{ !inputs.skip_heavy_tests }}
+        working-directory: frontend
         run: npm test
 
       - name: Run frontend lint
+        if: ${{ !inputs.skip_heavy_tests }}
+        working-directory: frontend
         run: npm run lint
 
   markdown-link-check:

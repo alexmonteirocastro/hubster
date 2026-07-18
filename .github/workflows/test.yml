@@ -3,17 +3,52 @@ name: Test
 on:
   pull_request:
     branches: [main]
-    # Docs-only PRs skip the shared ci.yml suite. Link checks for those PRs
-    # run via markdown-links.yml. Mixed docs+code PRs still trigger this
-    # workflow. deploy.yml has no path filter — main always runs full CI.
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
 
 permissions:
   contents: read
 
 jobs:
+  # Detect docs-only PRs so ci.yml can no-op heavy jobs while still
+  # reporting the required check names (branch protection on main).
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.docs.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: docs
+        name: Detect docs-only PR
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          mapfile -t files < <(git diff --name-only "$BASE"..."$HEAD")
+          docs_only=true
+          if [ "${#files[@]}" -eq 0 ]; then
+            docs_only=false
+          fi
+          for f in "${files[@]}"; do
+            [ -z "$f" ] && continue
+            if [[ "$f" == docs/* ]]; then
+              continue
+            fi
+            # Root-level *.md only (matches former paths-ignore)
+            if [[ "$f" == *.md && "$f" != */* ]]; then
+              continue
+            fi
+            docs_only=false
+            break
+          done
+          echo "docs_only=${docs_only}"
+          echo "docs_only=${docs_only}" >> "$GITHUB_OUTPUT"
+
   ci:
+    needs: changes
     uses: ./.github/workflows/ci.yml
+    with:
+      skip_heavy_tests: ${{ needs.changes.outputs.docs_only == 'true' }}
     secrets: inherit
