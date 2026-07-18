@@ -125,5 +125,6 @@ For eval work not covered by pytest:
 - **Fixture comparison** — side-by-side scores for two models against `golden_jobs.json` / `golden_queries.json`
 - **Production-scale E5 eval** — read-only scroll of `JOBS_ON_THE_HUB`, re-embed under E5, manual top-5 review + score distributions for `CHAT_SOURCE_MIN_SCORE` calibration
 - **Token-length check** — read-only scroll of production `document_text`, E5 tokenizer stats vs the 512-token window
+- **Truncation vs precision correlation** — keyword positions relative to the 512-token cutoff for ALE-92 / ALE-138 failure jobs (ALE-141)
 
 See **[`scripts/README.md`](../scripts/README.md)** for prerequisites, commands, and how to read the output.
