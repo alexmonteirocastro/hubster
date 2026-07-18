@@ -165,8 +165,31 @@ def test_get_qdrant_client_enables_cloud_inference_for_qdrant_cloud(monkeypatch)
     assert client.kwargs == {
         "cloud_inference": True,
         "check_compatibility": False,
+        "timeout": 30,
     }
     assert client.model is None
+
+
+def test_get_qdrant_client_respects_qdrant_timeout_env(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "https://example.eu-central.aws.cloud.qdrant.io")
+    monkeypatch.setenv("QDRANT_API_KEY", "cloud-key")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("QDRANT_TIMEOUT", "60")
+    monkeypatch.setenv("EMBEDDING_MODEL", E5_MODEL)
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
+
+    class FakeQdrantClient:
+        def __init__(self, url: str, api_key: str | None = None, **kwargs):
+            self.kwargs = kwargs
+
+        def set_model(self, model: str):
+            pass
+
+    monkeypatch.setattr("db.settings.QdrantClient", FakeQdrantClient)
+
+    client = get_qdrant_client()
+
+    assert client.kwargs["timeout"] == 60
 
 
 def test_settings_rejects_empty_hubster_api_keys(monkeypatch):

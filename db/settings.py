@@ -14,6 +14,10 @@ DEFAULT_CHAT_RATE_LIMIT = "10/minute"
 # expected golden hits top-1 ~0.838–0.879, rank-5 ~0.832–0.874;
 # 0.85 sits between rank-5 median (0.853) and mean (0.852).
 DEFAULT_CHAT_SOURCE_MIN_SCORE = 0.85
+# qdrant-client default is 5s. Hybrid query_batch_points issues multiple Cloud
+# Inference embeds (dense prefetch + BM25 + companion dense); free-tier RTT
+# under CI retrieval-suite load routinely exceeds 5s (ADR-0010 Decision 7).
+DEFAULT_QDRANT_TIMEOUT_SECONDS = 30
 
 # ADR-0010: sparse BM25 via Qdrant Cloud Inference (not in-process FastEmbed).
 BM25_SPARSE_VECTOR_NAME = "bm25"
@@ -35,6 +39,15 @@ class Settings(BaseSettings):
     qdrant_collection_name: str = Field(validation_alias="QDRANT_COLLECTION_NAME")
     qdrant_dev_collection_name: str = Field(
         default="JOBS_DEV", validation_alias="QDRANT_DEV_COLLECTION_NAME"
+    )
+    qdrant_timeout: int = Field(
+        default=DEFAULT_QDRANT_TIMEOUT_SECONDS,
+        ge=1,
+        validation_alias="QDRANT_TIMEOUT",
+        description=(
+            "HTTP timeout in seconds for the Qdrant client when Cloud Inference "
+            "is enabled. Unused for local Qdrant (client default 5s)."
+        ),
     )
     embedding_model: str = Field(validation_alias="EMBEDDING_MODEL")
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
@@ -148,6 +161,7 @@ def get_qdrant_client() -> QdrantClient:
         # Skip client/server version skew checks; cloud_inference path does not
         # load local FastEmbed models (see qdrant-client #1024 / ADR-0014).
         kwargs["check_compatibility"] = False
+        kwargs["timeout"] = settings.qdrant_timeout
     client = QdrantClient(**kwargs)
     if not uses_cloud_inference(settings):
         client.set_model(settings.embedding_model)
