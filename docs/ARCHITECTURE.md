@@ -26,6 +26,7 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `QDRANT_API_KEY` | Qdrant Cloud API key (**required** for Cloud Inference) | *(set in `.env`)* |
 | `QDRANT_COLLECTION_NAME` | Qdrant collection name (required) | `JOBS_ON_THE_HUB` |
 | `QDRANT_DEV_COLLECTION_NAME` | Dev/test collection for retrieval evaluation (must differ from production) | `JOBS_DEV` |
+| `QDRANT_TIMEOUT` | HTTP timeout in seconds for the Qdrant client when Cloud Inference is enabled (optional; unused for local Qdrant) | `30` |
 | `EMBEDDING_MODEL` | Qdrant Cloud Inference model ID (required) | `intfloat/multilingual-e5-small` |
 | `LLM_PROVIDER` | Generation backend for `/chat`: `gemini` (default), `ollama`, or `stub` | `gemini` |
 | `GEMINI_API_KEY` | Google AI Studio API key for `/chat` generation (required when `LLM_PROVIDER=gemini`) | *(set in `.env`)* |

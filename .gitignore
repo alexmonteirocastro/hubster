@@ -23,3 +23,6 @@ evals_system/data/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+
+.agents/
+.claude/
