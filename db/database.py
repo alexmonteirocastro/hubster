@@ -118,12 +118,13 @@ def load_jobs_into_qdrant(
 ) -> None:
     embedding_model = get_settings().embedding_model
 
+    # Lazy import avoids a circular dependency with logging_config → db.settings.
+    from logging_config import log_injection_detected
+
     jobs_documents: list[str] = []
     for job in jobs:
         doc_text, matched_patterns = sanitize_document_text(_build_document_text(job))
         if matched_patterns:
-            from logging_config import log_injection_detected
-
             for pattern in matched_patterns:
                 log_injection_detected(
                     source="ingestion",

@@ -101,6 +101,8 @@ No confirmed production incidents have driven this ADR — it is proactive, MVP-
 - No uptime visibility (Decision 4) — downtime is only discovered when someone notices, or a user reports it.
 - Closed-set pattern matching (Decision 6, inheriting ADR-0012's same limitation) — sophisticated or paraphrased injection phrasing in a user's question will not be caught. Accepted because severity is bounded by the system's actual capabilities (read-only RAG Q&A, no tool use), not because the detection itself is comprehensive.
 - Direct Loki push (no Collector) has lower delivery reliability under transient network issues than a Collector-buffered pipeline — accepted at this traffic volume.
+- Unbounded in-process Loki queue (`Queue(-1)` behind `LokiQueueHandler`, Decision 1 implementation) — prefers never dropping/blocking the request path over bounding memory; a sustained Grafana Cloud outage under real load could grow process RAM unbounded on Render's free tier. Accepted at current traffic.
+- No shutdown flush of the Loki queue listener — on Render idle scale-down or redeploy, buffered-but-unsent records may be lost. Accepted at current volume; a FastAPI shutdown hook can flush later if needed.
 
 ## Revisit triggers
 
@@ -108,3 +110,5 @@ No confirmed production incidents have driven this ADR — it is proactive, MVP-
 - If cold starts or undetected downtime become an actual problem in practice, revisit uptime monitoring — starting with Grafana Cloud Synthetic Monitoring given the single-vendor preference already established here.
 - If traces/metrics become genuinely needed, or a move off Grafana Cloud is ever actually on the table, revisit adopting OpenTelemetry.
 - If alerting shows genuine, frequent user-query injection attempts (not just benign keyword coincidences), consider blocking or short-circuiting matched requests — mirroring ADR-0012's own revisit trigger for its ingestion-time detection.
+- If production traffic grows meaningfully, bound the Loki push queue and choose an explicit drop/backpressure policy rather than leaving it unbounded.
+- If lost logs on redeploy/scale-down become noticeable, add a shutdown hook that stops/flushes the Loki queue listener.
