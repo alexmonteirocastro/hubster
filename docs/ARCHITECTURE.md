@@ -43,8 +43,11 @@ Copy `.env.example` to `.env` before running anything locally or via Compose.
 | `HUB_CLIENT_BACKOFF_FACTOR` | Exponential backoff base between retries (optional) | `1.0` |
 | `HUB_CLIENT_REQUEST_DELAY` | Minimum seconds between outbound Hub requests (optional) | `0.25` |
 | `HUB_CLIENT_TIMEOUT` | Per-request timeout in seconds (optional) | `30.0` |
+| `GRAFANA_LOKI_URL` | Grafana Cloud Loki push URL (optional; ADR-0015 — all three Loki vars required to enable) | `https://logs-prod-….grafana.net/loki/api/v1/push` |
+| `GRAFANA_LOKI_USER_ID` | Grafana Cloud Loki user / instance ID (HTTP basic auth username) | *(set in `.env` / secrets)* |
+| `GRAFANA_LOKI_API_KEY` | Grafana Cloud access policy token with `logs:write` | *(set in `.env` / secrets)* |
 
-Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection. When `QDRANT_URL` points at Qdrant Cloud and `QDRANT_API_KEY` is set, `get_qdrant_client()` enables `cloud_inference=True` automatically.
+Configuration is loaded via a `Settings` class (`pydantic-settings`) in `db/settings.py`. All required variables must be set in `.env` — missing values raise a clear validation error, not a silently empty string. The FastAPI app validates required settings eagerly at construction time (`create_app()` / `from api.main import app`), so a misconfigured API process fails to start rather than on the first request. The Qdrant client remains lazy — constructed via `get_qdrant_client()` on first real use — so importing `db` alone does not open a network connection. When `QDRANT_URL` points at Qdrant Cloud and `QDRANT_API_KEY` is set, `get_qdrant_client()` enables `cloud_inference=True` automatically. Structured request/ingestion logs push to Grafana Cloud Loki when all three `GRAFANA_LOKI_*` variables are set ([ADR-0015](adr/0015-observability-logging-and-alerting.md)); see [ops/grafana-cloud-injection-alerting.md](ops/grafana-cloud-injection-alerting.md) for the companion alert rule.
 
 > **Embedding, ingestion, and semantic search require Qdrant Cloud** under the current model (`intfloat/multilingual-e5-small`). Point `.env` at your Cloud cluster — there is no local FastEmbed / Compose Qdrant path for these workflows ([ADR-0014](adr/0014-embedding-model-migration.md)).
 
@@ -223,6 +226,8 @@ Component tests (Vitest + React Testing Library) cover message rendering (includ
 ```
 hubster/
 ├── main.py                      # Sync/seed Qdrant, test search
+├── logging_config.py            # Shared Loki/structured logging setup (ADR-0015)
+├── prompt_injection.py          # Shared closed-set injection patterns (ADR-0012/0015)
 ├── frontend/                    # React + Vite chat UI (POST /chat)
 │   ├── src/
 │   │   ├── api/                 # Typed API client and request/response types

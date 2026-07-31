@@ -1,3 +1,4 @@
+from time import perf_counter
 from typing import Any, cast
 
 import requests
@@ -33,6 +34,8 @@ from llm_client.exceptions import (
     GenerationRateLimitError,
     GenerationUnavailableError,
 )
+from logging_config import configure_logging, log_chat_request, log_injection_detected
+from prompt_injection import find_injection_patterns
 from the_hub_client import CountryCode, get_full_jobs_picture_by_country
 from the_hub_client.models import JobOpenings
 
@@ -69,6 +72,7 @@ def _question_too_long_detail(question: str, max_length: int) -> list[dict[str, 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging(settings)
     application = FastAPI(
         title="Hubster API",
         description="JSON API for job stats and semantic search over The Hub listings.",
@@ -211,6 +215,15 @@ def _payload_to_source(score: float, payload: dict) -> ChatSource:
         ) from exc
 
 
+def _log_user_query_injection_matches(question: str) -> None:
+    for pattern in find_injection_patterns(question):
+        log_injection_detected(
+            source="user_query",
+            pattern=pattern,
+            question=question,
+        )
+
+
 @protected_router.post("/chat", response_model=ChatResponse)
 @limiter.limit(_chat_rate_limit)
 def chat(
@@ -218,99 +231,141 @@ def chat(
     chat_request: ChatRequest,
     generator: Generator = Depends(get_chat_generator),
 ) -> ChatResponse:
+    started = perf_counter()
+    prompt = chat_request.question
+    _log_user_query_injection_matches(prompt)
+
+    response_text: str | None = None
+    retrieved_jobs: list[dict[str, Any]] = []
+    generated: bool | None = None
+    provider: str | None = None
+    status = "ok"
+    error_type: str | None = None
+
     try:
-        settings = get_settings()
-        if len(chat_request.question) > settings.chat_question_max_length:
-            raise HTTPException(
-                status_code=422,
-                detail=_question_too_long_detail(
-                    chat_request.question,
-                    settings.chat_question_max_length,
-                ),
+        try:
+            settings = get_settings()
+            if len(chat_request.question) > settings.chat_question_max_length:
+                error_type = "QuestionTooLong"
+                raise HTTPException(
+                    status_code=422,
+                    detail=_question_too_long_detail(
+                        chat_request.question,
+                        settings.chat_question_max_length,
+                    ),
+                )
+            client = get_qdrant_client()
+            filters = resolve_chat_filters(
+                chat_request.question,
+                explicit_country=chat_request.country,
+                explicit_remote=chat_request.remote,
             )
-        client = get_qdrant_client()
-        filters = resolve_chat_filters(
-            chat_request.question,
-            explicit_country=chat_request.country,
-            explicit_remote=chat_request.remote,
-        )
-        search_results = query_jobs_in_qdrant(
-            db_client=client,
-            collection_name=settings.qdrant_collection_name,
-            query_text=chat_request.question,
-            limit=chat_request.limit,
-            country=filters.country,
-            remote=filters.remote,
-        )
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="Server configuration is invalid.",
-        ) from exc
-    except (UnexpectedResponse, ConnectionError, TimeoutError, OSError) as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Qdrant is unavailable.",
-        ) from exc
+            search_results = query_jobs_in_qdrant(
+                db_client=client,
+                collection_name=settings.qdrant_collection_name,
+                query_text=chat_request.question,
+                limit=chat_request.limit,
+                country=filters.country,
+                remote=filters.remote,
+            )
+        except ValidationError as exc:
+            error_type = "ConfigurationError"
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration is invalid.",
+            ) from exc
+        except (UnexpectedResponse, ConnectionError, TimeoutError, OSError) as exc:
+            error_type = "QdrantUnavailable"
+            raise HTTPException(
+                status_code=503,
+                detail="Qdrant is unavailable.",
+            ) from exc
 
-    usable_points = filter_chat_retrieval_points(
-        search_results.points,
-        min_score=settings.chat_source_min_score,
-    )
+        usable_points = filter_chat_retrieval_points(
+            search_results.points,
+            min_score=settings.chat_source_min_score,
+        )
 
-    if not usable_points:
+        if not usable_points:
+            response_text = NO_MATCHING_JOBS_MESSAGE
+            generated = False
+            return ChatResponse(
+                question=chat_request.question,
+                answer=NO_MATCHING_JOBS_MESSAGE,
+                sources=[],
+                generated=False,
+                applied_country=filters.country,
+                applied_remote=filters.remote,
+            )
+
+        sources = [
+            _payload_to_source(point.score, cast(dict[str, Any], point.payload))
+            for point in usable_points
+        ]
+        retrieved_jobs = [
+            {"job_id": source.job_id, "score": source.score} for source in sources
+        ]
+        llm_settings = get_llm_settings()
+        provider = llm_settings.llm_provider
+        context = format_job_context(
+            [cast(dict[str, Any], point.payload) for point in usable_points],
+            max_chars_per_job=(
+                llm_settings.ollama_max_chars_per_job
+                if llm_settings.llm_provider == "ollama"
+                else None
+            ),
+        )
+
+        try:
+            answer = generator.generate(context=context, question=chat_request.question)
+        except GenerationRateLimitError as exc:
+            error_type = "GenerationRateLimitError"
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "The generation service is rate-limited. Please try again shortly."
+                ),
+            ) from exc
+        except GenerationConfigurationError as exc:
+            error_type = "GenerationConfigurationError"
+            raise HTTPException(
+                status_code=500,
+                detail="Generation service configuration is invalid.",
+            ) from exc
+        except GenerationUnavailableError as exc:
+            error_type = "GenerationUnavailableError"
+            raise HTTPException(
+                status_code=502,
+                detail="The generation service is unavailable.",
+            ) from exc
+
+        allowed_job_urls = {source.job_url for source in sources}
+        answer = sanitize_answer_links(answer, allowed_job_urls)
+        response_text = answer
+        generated = True
+
         return ChatResponse(
             question=chat_request.question,
-            answer=NO_MATCHING_JOBS_MESSAGE,
-            sources=[],
-            generated=False,
+            answer=answer,
+            sources=sources,
+            generated=True,
             applied_country=filters.country,
             applied_remote=filters.remote,
         )
-
-    sources = [
-        _payload_to_source(point.score, cast(dict[str, Any], point.payload))
-        for point in usable_points
-    ]
-    llm_settings = get_llm_settings()
-    context = format_job_context(
-        [cast(dict[str, Any], point.payload) for point in usable_points],
-        max_chars_per_job=(
-            llm_settings.ollama_max_chars_per_job
-            if llm_settings.llm_provider == "ollama"
-            else None
-        ),
-    )
-
-    try:
-        answer = generator.generate(context=context, question=chat_request.question)
-    except GenerationRateLimitError as exc:
-        raise HTTPException(
-            status_code=429,
-            detail="The generation service is rate-limited. Please try again shortly.",
-        ) from exc
-    except GenerationConfigurationError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="Generation service configuration is invalid.",
-        ) from exc
-    except GenerationUnavailableError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="The generation service is unavailable.",
-        ) from exc
-
-    allowed_job_urls = {source.job_url for source in sources}
-    answer = sanitize_answer_links(answer, allowed_job_urls)
-
-    return ChatResponse(
-        question=chat_request.question,
-        answer=answer,
-        sources=sources,
-        generated=True,
-        applied_country=filters.country,
-        applied_remote=filters.remote,
-    )
+    except HTTPException:
+        status = "error"
+        raise
+    finally:
+        log_chat_request(
+            prompt=prompt,
+            response=response_text,
+            retrieved_jobs=retrieved_jobs,
+            latency_ms=int((perf_counter() - started) * 1000),
+            status=status,
+            error_type=error_type,
+            generated=generated,
+            provider=provider,
+        )
 
 
 app.include_router(protected_router)

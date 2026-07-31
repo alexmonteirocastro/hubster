@@ -1,5 +1,3 @@
-import logging
-import re
 import uuid
 from typing import cast
 from uuid import UUID
@@ -13,54 +11,14 @@ from db.settings import (
     MISSING_DENSE_SCORE,
     get_settings,
 )
+from logging_config import log_injection_detected
+from prompt_injection import sanitize_document_text
 from the_hub_client import JobOpportunity
 from the_hub_client.models import (
     EU_COUNTRY_FILTER_EXCLUSIONS,
     CountryCode,
     country_code_to_hub_country_name,
 )
-
-logger = logging.getLogger(__name__)
-
-# ADR-0012 Decision 3: closed deterministic injection patterns stripped at ingestion.
-INJECTION_PATTERNS: tuple[str, ...] = (
-    "ignore previous instructions",
-    "ignore all previous instructions",
-    "disregard the above",
-    "disregard all previous instructions",
-    "system:",
-    "assistant:",
-    "###",
-)
-
-_INJECTION_PATTERN_REGEX = re.compile(
-    "|".join(re.escape(pattern) for pattern in INJECTION_PATTERNS),
-    re.IGNORECASE,
-)
-
-
-def sanitize_document_text(document_text: str) -> tuple[str, list[str]]:
-    """Strip obvious injection patterns from document_text.
-
-    Returns sanitized text and the canonical matched patterns (ADR-0012 Decisions 3–4).
-    """
-    matched_patterns: list[str] = []
-
-    def _record_and_strip(match: re.Match[str]) -> str:
-        matched = match.group(0)
-        canonical = next(
-            (
-                pattern
-                for pattern in INJECTION_PATTERNS
-                if matched.casefold() == pattern.casefold()
-            ),
-            matched,
-        )
-        matched_patterns.append(canonical)
-        return ""
-
-    sanitized = _INJECTION_PATTERN_REGEX.sub(_record_and_strip, document_text)
-    return sanitized, matched_patterns
 
 
 def _build_document_text(job: JobOpportunity) -> str:
@@ -166,10 +124,10 @@ def load_jobs_into_qdrant(
         doc_text, matched_patterns = sanitize_document_text(_build_document_text(job))
         if matched_patterns:
             for pattern in matched_patterns:
-                logger.warning(
-                    "Stripped injection pattern from document_text for job %s: %r",
-                    job.job_id,
-                    pattern,
+                log_injection_detected(
+                    source="ingestion",
+                    pattern=pattern,
+                    job_id=job.job_id,
                 )
         jobs_documents.append(doc_text)
 

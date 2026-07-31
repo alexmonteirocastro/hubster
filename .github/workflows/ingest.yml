@@ -29,6 +29,10 @@ jobs:
       # Settings() requires HUBSTER_API_KEYS even though ingestion doesn't use
       # /chat auth — reuse the same production key(s) set on Render.
       HUBSTER_API_KEYS: ${{ secrets.HUBSTER_API_KEYS }}
+      # ADR-0015: optional Loki push (omit or leave unset in secrets to skip).
+      GRAFANA_LOKI_URL: ${{ secrets.GRAFANA_LOKI_URL }}
+      GRAFANA_LOKI_USER_ID: ${{ secrets.GRAFANA_LOKI_USER_ID }}
+      GRAFANA_LOKI_API_KEY: ${{ secrets.GRAFANA_LOKI_API_KEY }}
 
     steps:
       - name: Check out repo

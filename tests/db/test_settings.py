@@ -81,6 +81,31 @@ def test_get_settings_loads_from_env(monkeypatch):
     assert settings.chat_rate_limit == "10/minute"
     assert settings.chat_source_min_score == 0.85
     assert settings.hubster_api_keys == {"abc123", "def456"}
+    assert settings.grafana_loki_url is None
+    assert settings.grafana_loki_user_id is None
+    assert settings.grafana_loki_api_key is None
+
+
+def test_get_settings_parses_grafana_loki_optional_fields(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "JOBS_ON_THE_HUB")
+    monkeypatch.setenv("EMBEDDING_MODEL", E5_MODEL)
+    monkeypatch.setenv("HUBSTER_API_KEYS", "test-key")
+    monkeypatch.setenv(
+        "GRAFANA_LOKI_URL",
+        "https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push",
+    )
+    monkeypatch.setenv("GRAFANA_LOKI_USER_ID", "123456")
+    monkeypatch.setenv("GRAFANA_LOKI_API_KEY", "glc_token")
+
+    settings = get_settings()
+
+    assert (
+        settings.grafana_loki_url
+        == "https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push"
+    )
+    assert settings.grafana_loki_user_id == "123456"
+    assert settings.grafana_loki_api_key == "glc_token"
 
 
 def test_get_settings_parses_cors_allowed_origins(monkeypatch):
