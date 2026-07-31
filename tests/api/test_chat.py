@@ -1107,3 +1107,39 @@ def test_chat_logs_injection_match_without_changing_response(
     chat_payload = json.loads(chat_records[0].getMessage())
     assert chat_payload["status"] == "ok"
     assert chat_payload["response"] == "Normal grounded answer."
+
+
+@patch("api.main.query_jobs_in_qdrant")
+@patch("api.main.get_qdrant_client")
+@patch("api.main.get_settings")
+def test_chat_logs_unexpected_exception_as_error(
+    mock_get_settings,
+    mock_get_qdrant_client,
+    mock_query_jobs,
+    caplog,
+):
+    import json
+    import logging
+
+    from logging_config import CHAT_LOGGER_NAME
+
+    mock_get_settings.return_value = api_settings_namespace()
+    mock_get_qdrant_client.return_value = object()
+    mock_query_jobs.side_effect = RuntimeError("boom")
+
+    with (
+        caplog.at_level(logging.INFO, logger=CHAT_LOGGER_NAME),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        client.post("/chat", json={"question": "backend roles?"})
+
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == CHAT_LOGGER_NAME and "chat_request" in record.getMessage()
+    ]
+    assert len(chat_records) == 1
+    payload = json.loads(chat_records[0].getMessage())
+    assert payload["status"] == "error"
+    assert payload["error_type"] == "RuntimeError"
+    assert payload["response"] is None

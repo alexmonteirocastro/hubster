@@ -11,7 +11,6 @@ from db.settings import (
     MISSING_DENSE_SCORE,
     get_settings,
 )
-from logging_config import log_injection_detected
 from prompt_injection import sanitize_document_text
 from the_hub_client import JobOpportunity
 from the_hub_client.models import (
@@ -123,6 +122,8 @@ def load_jobs_into_qdrant(
     for job in jobs:
         doc_text, matched_patterns = sanitize_document_text(_build_document_text(job))
         if matched_patterns:
+            from logging_config import log_injection_detected
+
             for pattern in matched_patterns:
                 log_injection_detected(
                     source="ingestion",

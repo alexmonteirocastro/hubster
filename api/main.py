@@ -355,6 +355,10 @@ def chat(
     except HTTPException:
         status = "error"
         raise
+    except Exception as exc:
+        status = "error"
+        error_type = error_type or type(exc).__name__
+        raise
     finally:
         log_chat_request(
             prompt=prompt,
