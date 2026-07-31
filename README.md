@@ -86,6 +86,8 @@ Workflow guide (how to read `separation_margin`, judgments, sweeps, etc.):
 - [CONTRIBUTING.md](CONTRIBUTING.md) — code-quality tooling and dev checks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — environment variables, ingestion, local development, project layout, data model, Hub API client, and testing
 - [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — problem, roadmap, and trust bar for `/chat`
+- [docs/ops/grafana-cloud-chat-observability.md](docs/ops/grafana-cloud-chat-observability.md) — Grafana Cloud `/chat` dashboard (ADR-0015)
+- [docs/ops/grafana-cloud-injection-alerting.md](docs/ops/grafana-cloud-injection-alerting.md) — Grafana Cloud injection alert rule (ADR-0015)
 - [evals_system/GUIDE.md](evals_system/GUIDE.md) — manual eval review UI walkthrough
 - [docs/adr/](docs/adr/) — architectural decision records
   - [ADR-0001](docs/adr/0001-llm-provider-strategy.md) — LLM provider strategy for the RAG generation layer
@@ -97,3 +99,4 @@ Workflow guide (how to read `separation_margin`, judgments, sweeps, etc.):
   - [ADR-0007](docs/adr/0007-local-generation-fallback-ollama-qwen3.md) — local generation fallback via Ollama
   - [ADR-0009](docs/adr/0009-grounded-inline-job-hyperlinks.md) — grounded inline job hyperlinks in generated answers
   - [ADR-0014](docs/adr/0014-embedding-model-migration.md) — E5-small via Qdrant Cloud Inference
+  - [ADR-0015](docs/adr/0015-observability-logging-and-alerting.md) — structured Loki logging and prompt-injection alerting
