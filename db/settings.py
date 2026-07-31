@@ -88,6 +88,30 @@ class Settings(BaseSettings):
             "(see ADR-0011)."
         ),
     )
+    # ADR-0015: optional Grafana Cloud Loki push (all three required to enable).
+    grafana_loki_url: str | None = Field(
+        default=None,
+        validation_alias="GRAFANA_LOKI_URL",
+        description=(
+            "Grafana Cloud Loki push URL "
+            "(e.g. https://logs-prod-….grafana.net/loki/api/v1/push)."
+        ),
+    )
+    grafana_loki_user_id: str | None = Field(
+        default=None,
+        validation_alias="GRAFANA_LOKI_USER_ID",
+        description=(
+            "Grafana Cloud Loki numeric user / instance ID (HTTP basic auth username)."
+        ),
+    )
+    grafana_loki_api_key: str | None = Field(
+        default=None,
+        validation_alias="GRAFANA_LOKI_API_KEY",
+        description=(
+            "Grafana Cloud access policy token with logs:write "
+            "(HTTP basic auth password)."
+        ),
+    )
 
     @field_validator("hubster_api_keys", mode="before")
     @classmethod
@@ -129,9 +153,15 @@ class Settings(BaseSettings):
             raise ValueError("must not be empty")
         return value
 
-    @field_validator("qdrant_api_key", mode="before")
+    @field_validator(
+        "qdrant_api_key",
+        "grafana_loki_url",
+        "grafana_loki_user_id",
+        "grafana_loki_api_key",
+        mode="before",
+    )
     @classmethod
-    def empty_api_key_is_none(cls, value: str | None) -> str | None:
+    def empty_optional_str_is_none(cls, value: str | None) -> str | None:
         if value == "" or value is None:
             return None
         return value

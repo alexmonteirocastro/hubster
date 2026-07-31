@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "google-genai>=2.10.0",
+    "inuits-python-logging-loki>=1.4.1",
     "markdownify>=1.2.2",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
@@ -61,4 +62,8 @@ exclude = ["tests/", "frontend/", "evals_system/assets/"]
 # CI install is --group dev only; streamlit lives in eval-ui.
 [[tool.mypy.overrides]]
 module = "streamlit.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "logging_loki.*"
 ignore_missing_imports = true

@@ -12,9 +12,11 @@ from db import (
     seed_qdrant_db,
     sync_qdrant_db,
 )
+from logging_config import configure_logging
 
 
 def main(mode: str = "sync", *, reset: bool = False) -> None:
+    configure_logging()
     settings = get_settings()
     client = get_qdrant_client()
 

@@ -18,6 +18,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(autouse=True)
+def reset_logging_config_state():
+    """Keep logging_config idempotency flag from leaking across tests."""
+    from logging_config import reset_logging_config_for_tests
+
+    reset_logging_config_for_tests()
+    yield
+    reset_logging_config_for_tests()
+
+
 @pytest.fixture
 def load_fixture():
     def _load(name: str) -> dict:
