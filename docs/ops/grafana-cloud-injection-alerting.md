@@ -50,3 +50,7 @@ Inspect `source` (`ingestion` | `user_query`), `pattern`, and (when present) `jo
 2. Confirm a Loki line with `event=injection_detected`, `source=user_query`.
 3. Confirm the alert transitions to firing within one evaluation interval.
 4. Optionally run ingestion against a fixture job with injection phrasing and confirm `source=ingestion`.
+
+## Related
+
+- [/chat observability dashboard](grafana-cloud-chat-observability.md) — request volume, errors, latency, provider, and injection panels over the same Loki stream.
